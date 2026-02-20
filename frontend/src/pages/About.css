@@ -1,0 +1,176 @@
+.about {
+  width: 100%;
+}
+
+.about-hero {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 100px 20px;
+  text-align: center;
+}
+
+.about-content h1 {
+  font-size: 3rem;
+  margin-bottom: 20px;
+  font-family: 'Cinzel', serif;
+}
+
+.about-content p {
+  font-size: 1.3rem;
+  opacity: 0.9;
+}
+
+.about-section {
+  padding: 80px 0;
+  background-color: white;
+}
+
+.about-section.alt {
+  background-color: #f9f9f9;
+}
+
+.about-section h2 {
+  font-size: 2.5rem;
+  margin-bottom: 30px;
+  color: #667eea;
+  font-family: 'Cinzel', serif;
+}
+
+.about-section p {
+  font-size: 1.1rem;
+  line-height: 1.8;
+  color: #666;
+  max-width: 800px;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.values-section {
+  padding: 80px 0;
+  background-color: #f9f9f9;
+}
+
+.values-section h2 {
+  text-align: center;
+  font-size: 2.5rem;
+  margin-bottom: 60px;
+  color: #667eea;
+  font-family: 'Cinzel', serif;
+}
+
+.values-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 30px;
+}
+
+.value-card {
+  background: white;
+  padding: 40px 30px;
+  border-radius: 10px;
+  text-align: center;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  border-left: 5px solid #667eea;
+}
+
+.value-card h3 {
+  color: #667eea;
+  font-size: 1.3rem;
+  margin-bottom: 15px;
+}
+
+.value-card p {
+  color: #666;
+}
+
+.facilities-section {
+  padding: 80px 0;
+  background-color: white;
+}
+
+.facilities-section h2 {
+  text-align: center;
+  font-size: 2.5rem;
+  margin-bottom: 60px;
+  color: #667eea;
+  font-family: 'Cinzel', serif;
+}
+
+.facilities-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 30px;
+}
+
+.facility {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 40px 30px;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.facility h3 {
+  font-size: 1.3rem;
+  margin-bottom: 15px;
+}
+
+.facility p {
+  line-height: 1.6;
+  opacity: 0.95;
+}
+
+.achievements {
+  padding: 80px 0;
+  background-color: #f9f9f9;
+}
+
+.achievements h2 {
+  text-align: center;
+  font-size: 2.5rem;
+  margin-bottom: 50px;
+  color: #667eea;
+  font-family: 'Cinzel', serif;
+}
+
+.achievement-list {
+  list-style: none;
+  padding: 0;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.achievement-list li {
+  padding: 15px 0;
+  padding-left: 40px;
+  position: relative;
+  font-size: 1.1rem;
+  color: #666;
+  border-bottom: 1px solid #ddd;
+}
+
+.achievement-list li:before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: #667eea;
+  font-weight: bold;
+  font-size: 1.3rem;
+}
+
+@media screen and (max-width: 768px) {
+  .about-content h1 {
+    font-size: 1.8rem;
+  }
+
+  .about-section h2,
+  .values-section h2,
+  .facilities-section h2,
+  .achievements h2 {
+    font-size: 1.8rem;
+  }
+}

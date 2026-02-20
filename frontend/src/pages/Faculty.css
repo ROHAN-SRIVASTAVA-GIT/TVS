@@ -1,0 +1,142 @@
+.faculty-container {
+  max-width: 1200px;
+  margin: 40px auto;
+  padding: 0 20px;
+}
+
+.faculty-header {
+  text-align: center;
+  margin-bottom: 60px;
+}
+
+.faculty-header h1 {
+  font-size: 2.5rem;
+  color: #667eea;
+  margin-bottom: 10px;
+  font-family: 'Cinzel', serif;
+}
+
+.faculty-header p {
+  font-size: 1.1rem;
+  color: #666;
+}
+
+.faculty-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 30px;
+  margin-bottom: 60px;
+}
+
+.faculty-card {
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+  padding: 30px;
+  text-align: center;
+  transition: all 0.3s ease;
+  border-top: 4px solid #667eea;
+}
+
+.faculty-card:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+}
+
+.avatar {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.5rem;
+  font-weight: bold;
+  margin: 0 auto 20px;
+}
+
+.faculty-card h3 {
+  color: #333;
+  margin: 15px 0 5px 0;
+  font-size: 1.3rem;
+}
+
+.position {
+  color: #667eea;
+  font-weight: 600;
+  margin-bottom: 20px;
+  font-size: 1rem;
+}
+
+.details {
+  text-align: left;
+  background: #f9f9f9;
+  padding: 15px;
+  border-radius: 5px;
+  margin-top: 15px;
+}
+
+.details p {
+  margin: 10px 0;
+  color: #666;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.details strong {
+  color: #667eea;
+}
+
+.faculty-info {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 60px 40px;
+  border-radius: 10px;
+}
+
+.faculty-info h2 {
+  text-align: center;
+  margin-bottom: 40px;
+  font-size: 2rem;
+  font-family: 'Cinzel', serif;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 30px;
+}
+
+.info-item {
+  text-align: center;
+}
+
+.info-item h4 {
+  font-size: 1.2rem;
+  margin-bottom: 10px;
+}
+
+.info-item p {
+  opacity: 0.95;
+  line-height: 1.6;
+}
+
+@media screen and (max-width: 768px) {
+  .faculty-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .faculty-info {
+    padding: 40px 20px;
+  }
+
+  .faculty-header h1 {
+    font-size: 1.8rem;
+  }
+
+  .faculty-info h2 {
+    font-size: 1.5rem;
+  }
+}
