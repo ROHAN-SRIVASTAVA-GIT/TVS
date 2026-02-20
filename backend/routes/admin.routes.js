@@ -51,6 +51,7 @@ router.delete('/payments/:id', auth, authorize('admin'), AdminController.deleteP
 router.get('/contacts', auth, authorize('admin'), AdminController.getAllContacts);
 router.put('/contacts/:id/status', auth, authorize('admin'), AdminController.updateContactStatus);
 router.delete('/contacts/:id', auth, authorize('admin'), AdminController.deleteContact);
+router.post('/contacts/:id/reply', auth, authorize('admin'), AdminController.replyToContact);
 
 // Notices
 router.get('/notices', auth, authorize('admin'), AdminController.getAllNotices);

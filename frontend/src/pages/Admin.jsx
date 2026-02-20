@@ -5,6 +5,14 @@ import './Admin.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
+const getImageUrl = (url) => {
+  if (!url) return null;
+  if (url.startsWith('data:')) return url;
+  // Fix: Remove /api prefix if present, since static files are served from root
+  const baseUrl = API_URL.replace('/api', '');
+  return `${baseUrl}${url}`;
+};
+
 const Admin = () => {
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -25,6 +33,7 @@ const Admin = () => {
   // Pagination & Filters
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0 });
   const [filters, setFilters] = useState({ status: '', search: '', type: '' });
+  const [period, setPeriod] = useState('all');
   const [selectedItem, setSelectedItem] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState('view');
@@ -32,7 +41,7 @@ const Admin = () => {
 
   useEffect(() => {
     fetchDashboardStats();
-  }, []);
+  }, [period]);
 
   useEffect(() => {
     loadTabData();
@@ -40,7 +49,7 @@ const Admin = () => {
 
   const fetchDashboardStats = async () => {
     try {
-      const response = await axiosInstance.get('/admin/dashboard/stats');
+      const response = await axiosInstance.get(`/admin/dashboard/stats?period=${period}`);
       setStats(response.data.data || response.data);
     } catch (err) {
       console.error('Failed to fetch stats:', err);
@@ -129,7 +138,7 @@ const Admin = () => {
     setLoading(true);
     try {
       const res = await axiosInstance.get('/admin/fee-structures');
-      setFeeStructures(res.data.data || []);
+      setFeeStructures(res.data || []);
     } catch (err) { console.error(err); }
     setLoading(false);
   };
@@ -138,7 +147,7 @@ const Admin = () => {
     setLoading(true);
     try {
       const res = await axiosInstance.get('/admin/gallery');
-      setGallery(res.data.data || []);
+      setGallery(res.data || []);
     } catch (err) { console.error(err); }
     setLoading(false);
   };
@@ -341,7 +350,7 @@ const Admin = () => {
         </div>
 
         <div className="admin-content">
-          {activeTab === 'dashboard' && <DashboardTab stats={stats} loading={loading} setActiveTab={setActiveTab} />}
+          {activeTab === 'dashboard' && <DashboardTab stats={stats} loading={loading} setActiveTab={setActiveTab} period={period} setPeriod={setPeriod} />}
           
           {activeTab === 'users' && (
             <DataTable
@@ -460,7 +469,7 @@ const Admin = () => {
             <DataTable
               title="Contact Messages"
               data={contacts}
-              columns={['ID', 'Name', 'Email', 'Phone', 'Subject', 'Date', 'Actions']}
+              columns={['ID', 'Name', 'Email', 'Phone', 'Subject', 'Status', 'Date', 'Actions']}
               renderRow={(c) => (
                 <>
                   <td>{c.id}</td>
@@ -468,9 +477,16 @@ const Admin = () => {
                   <td>{c.email}</td>
                   <td>{c.phone || '-'}</td>
                   <td>{c.subject}</td>
+                  <td><span className={`status-badge ${c.status || 'unread'}`}>{c.status || 'unread'}</span></td>
                   <td>{new Date(c.created_at).toLocaleDateString()}</td>
                   <td>
                     <button className="action-btn view" onClick={() => viewDetails(c)}>View</button>
+                    <button className="action-btn reply" onClick={() => {
+                      setSelectedItem(c);
+                      setModalMode('reply');
+                      setFormData({ replyMessage: '', subject: c.subject });
+                      setShowModal(true);
+                    }}>Reply</button>
                     <button className="action-btn reject" onClick={() => deleteItem('contacts', c.id)}>Delete</button>
                   </td>
                 </>
@@ -586,13 +602,22 @@ const Admin = () => {
           {activeTab === 'gallery' && (
             <DataTable
               data={gallery}
-              columns={['ID', 'Title', 'Category', 'Image', 'Date', 'Actions']}
+              columns={['ID', 'Preview', 'Title', 'Category', 'Date', 'Actions']}
               renderRow={(g) => (
                 <>
                   <td>{g.id}</td>
+                  <td>
+                    {g.image_url ? (
+                      <img 
+                        src={getImageUrl(g.image_url)} 
+                        alt={g.title}
+                        style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '5px' }}
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                    ) : '❌'}
+                  </td>
                   <td>{g.title}</td>
                   <td>{g.category || '-'}</td>
-                  <td>{g.image_url ? '✅' : '❌'}</td>
                   <td>{new Date(g.created_at).toLocaleDateString()}</td>
                   <td>
                     <button className="action-btn view" onClick={() => viewDetails(g)}>View</button>
@@ -641,8 +666,9 @@ const Admin = () => {
           <div className="modal-content admin-modal-large" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>
-                {modalMode === 'create' ? 'Create New ' : modalMode === 'edit' ? 'Edit ' : ''}
-                {activeTab === 'notices' ? 'Notice' : 
+                {modalMode === 'reply' ? 'Reply to ' : modalMode === 'create' ? 'Create New ' : modalMode === 'edit' ? 'Edit ' : ''}
+                {activeTab === 'contacts' ? selectedItem?.name : 
+                 activeTab === 'notices' ? 'Notice' : 
                  activeTab === 'fees' ? 'Fee Structure' : 
                  activeTab === 'students' ? 'Student' : 
                  activeTab === 'gallery' ? 'Gallery Item' : 'Details'}
@@ -650,7 +676,50 @@ const Admin = () => {
               <button className="close-btn" onClick={() => setShowModal(false)}>×</button>
             </div>
             <div className="modal-body">
-              {(modalMode === 'create' || modalMode === 'edit') ? (
+              {modalMode === 'reply' && activeTab === 'contacts' ? (
+                <form onSubmit={async (e) => {
+                  e.preventDefault();
+                  try {
+                    await axiosInstance.post(`/admin/contacts/${selectedItem.id}/reply`, {
+                      replyMessage: formData.replyMessage,
+                      subject: formData.subject
+                    });
+                    alert('Reply sent successfully!');
+                    setShowModal(false);
+                    loadTabData();
+                  } catch (err) {
+                    alert('Failed to send reply: ' + (err.message || 'Unknown error'));
+                  }
+                }} className="admin-form">
+                  <div className="reply-info">
+                    <p><strong>To:</strong> {selectedItem?.name} ({selectedItem?.email})</p>
+                    <p><strong>Subject:</strong> {selectedItem?.subject}</p>
+                  </div>
+                  <div className="form-group">
+                    <label>Subject *</label>
+                    <input 
+                      type="text" 
+                      value={formData.subject || ''} 
+                      onChange={e => setFormData({...formData, subject: e.target.value})} 
+                      required 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Reply Message *</label>
+                    <textarea 
+                      value={formData.replyMessage || ''} 
+                      onChange={e => setFormData({...formData, replyMessage: e.target.value})} 
+                      rows="8" 
+                      placeholder="Write your reply here..."
+                      required 
+                    />
+                  </div>
+                  <div className="form-actions">
+                    <button type="submit" className="submit-btn">Send Reply</button>
+                    <button type="button" className="cancel-btn" onClick={() => setShowModal(false)}>Cancel</button>
+                  </div>
+                </form>
+              ) : (modalMode === 'create' || modalMode === 'edit') ? (
                 <form onSubmit={handleFormSubmit} className="admin-form">
                   {/* Notice Form */}
                   {activeTab === 'notices' && (
@@ -867,77 +936,220 @@ const Admin = () => {
 };
 
 // Dashboard Tab Component
-const DashboardTab = ({ stats, loading, setActiveTab }) => (
+const DashboardTab = ({ stats, loading, setActiveTab, period, setPeriod }) => (
   <div className="dashboard-section">
-    <h2>Dashboard Overview</h2>
+    <div className="dashboard-header-row">
+      <h2>Dashboard Overview</h2>
+      <div className="period-filter">
+        <label>Time Period:</label>
+        <select value={period} onChange={(e) => setPeriod(e.target.value)}>
+          <option value="all">All Time</option>
+          <option value="today">Today</option>
+          <option value="week">This Week</option>
+          <option value="month">This Month</option>
+          <option value="year">This Year</option>
+        </select>
+      </div>
+    </div>
+    
     {loading ? <p>Loading...</p> : (
       <>
-        <div className="stats-grid">
-          <div className="stat-card" onClick={() => setActiveTab('users')}>
-            <div className="stat-icon">👥</div>
-            <div className="stat-info">
-              <h3>{stats?.totalUsers || 0}</h3>
-              <p>Total Users</p>
+        {/* Revenue KPI Cards */}
+        <div className="kpi-section">
+          <h3>💰 Revenue KPIs</h3>
+          <div className="stats-grid">
+            <div className="stat-card highlight">
+              <div className="stat-icon">💵</div>
+              <div className="stat-info">
+                <h3>₹{parseFloat(stats?.totalRevenue || 0).toLocaleString('en-IN')}</h3>
+                <p>Total Revenue</p>
+              </div>
             </div>
-          </div>
-          <div className="stat-card" onClick={() => setActiveTab('admissions')}>
-            <div className="stat-icon">📝</div>
-            <div className="stat-info">
-              <h3>{stats?.totalAdmissions || 0}</h3>
-              <p>Total Admissions</p>
+            <div className="stat-card">
+              <div className="stat-icon">📅</div>
+              <div className="stat-info">
+                <h3>₹{parseFloat(stats?.todayRevenue || 0).toLocaleString('en-IN')}</h3>
+                <p>Today's Revenue</p>
+              </div>
             </div>
-          </div>
-          <div className="stat-card" onClick={() => setActiveTab('payments')}>
-            <div className="stat-icon">💰</div>
-            <div className="stat-info">
-              <h3>₹{parseFloat(stats?.totalRevenue || 0).toLocaleString('en-IN')}</h3>
-              <p>Total Revenue</p>
+            <div className="stat-card">
+              <div className="stat-icon">📆</div>
+              <div className="stat-info">
+                <h3>₹{parseFloat(stats?.weekRevenue || 0).toLocaleString('en-IN')}</h3>
+                <p>This Week</p>
+              </div>
             </div>
-          </div>
-          <div className="stat-card" onClick={() => setActiveTab('payments')}>
-            <div className="stat-icon">✅</div>
-            <div className="stat-info">
-              <h3>{stats?.completedPayments || 0}</h3>
-              <p>Completed Payments</p>
-            </div>
-          </div>
-          <div className="stat-card warning" onClick={() => setActiveTab('payments')}>
-            <div className="stat-icon">⏳</div>
-            <div className="stat-info">
-              <h3>{stats?.pendingPayments || 0}</h3>
-              <p>Pending Payments</p>
-            </div>
-          </div>
-          <div className="stat-card" onClick={() => setActiveTab('contacts')}>
-            <div className="stat-icon">📧</div>
-            <div className="stat-info">
-              <h3>{stats?.totalContacts || 0}</h3>
-              <p>Contact Messages</p>
-            </div>
-          </div>
-          <div className="stat-card" onClick={() => setActiveTab('students')}>
-            <div className="stat-icon">🎓</div>
-            <div className="stat-info">
-              <h3>{stats?.totalStudents || 0}</h3>
-              <p>Total Students</p>
-            </div>
-          </div>
-          <div className="stat-card" onClick={() => setActiveTab('notices')}>
-            <div className="stat-icon">📢</div>
-            <div className="stat-info">
-              <h3>{stats?.totalNotices || 0}</h3>
-              <p>Notices</p>
+            <div className="stat-card">
+              <div className="stat-icon">🗓️</div>
+              <div className="stat-info">
+                <h3>₹{parseFloat(stats?.monthRevenue || 0).toLocaleString('en-IN')}</h3>
+                <p>This Month</p>
+              </div>
             </div>
           </div>
         </div>
-        
+
+        {/* Admissions KPI */}
+        <div className="kpi-section">
+          <h3>📝 Admission KPIs</h3>
+          <div className="stats-grid">
+            <div className="stat-card" onClick={() => setActiveTab('admissions')}>
+              <div className="stat-icon">📋</div>
+              <div className="stat-info">
+                <h3>{stats?.totalAdmissions || 0}</h3>
+                <p>Total Applications</p>
+              </div>
+            </div>
+            <div className="stat-card" onClick={() => setActiveTab('admissions')}>
+              <div className="stat-icon">⏳</div>
+              <div className="stat-info">
+                <h3>{stats?.pendingAdmissions || 0}</h3>
+                <p>Pending</p>
+              </div>
+            </div>
+            <div className="stat-card" onClick={() => setActiveTab('admissions')}>
+              <div className="stat-icon">✅</div>
+              <div className="stat-info">
+                <h3>{stats?.approvedAdmissions || 0}</h3>
+                <p>Approved</p>
+              </div>
+            </div>
+            <div className="stat-card" onClick={() => setActiveTab('admissions')}>
+              <div className="stat-icon">❌</div>
+              <div className="stat-info">
+                <h3>{stats?.rejectedAdmissions || 0}</h3>
+                <p>Rejected</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Payment KPI */}
+        <div className="kpi-section">
+          <h3>💳 Payment KPIs</h3>
+          <div className="stats-grid">
+            <div className="stat-card" onClick={() => setActiveTab('payments')}>
+              <div className="stat-icon">📊</div>
+              <div className="stat-info">
+                <h3>{stats?.totalPayments || 0}</h3>
+                <p>Total Transactions</p>
+              </div>
+            </div>
+            <div className="stat-card success" onClick={() => setActiveTab('payments')}>
+              <div className="stat-icon">✓</div>
+              <div className="stat-info">
+                <h3>{stats?.completedPayments || 0}</h3>
+                <p>Completed</p>
+              </div>
+            </div>
+            <div className="stat-card warning" onClick={() => setActiveTab('payments')}>
+              <div className="stat-icon">⏳</div>
+              <div className="stat-info">
+                <h3>{stats?.pendingPayments || 0}</h3>
+                <p>Pending</p>
+              </div>
+            </div>
+            <div className="stat-card danger" onClick={() => setActiveTab('payments')}>
+              <div className="stat-icon">✕</div>
+              <div className="stat-info">
+                <h3>{stats?.failedPayments || 0}</h3>
+                <p>Failed</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Other KPIs */}
+        <div className="kpi-section">
+          <h3>📊 Other KPIs</h3>
+          <div className="stats-grid">
+            <div className="stat-card" onClick={() => setActiveTab('users')}>
+              <div className="stat-icon">👥</div>
+              <div className="stat-info">
+                <h3>{stats?.totalUsers || 0}</h3>
+                <p>Total Users</p>
+              </div>
+            </div>
+            <div className="stat-card" onClick={() => setActiveTab('students')}>
+              <div className="stat-icon">🎓</div>
+              <div className="stat-info">
+                <h3>{stats?.totalStudents || 0}</h3>
+                <p>Total Students</p>
+              </div>
+            </div>
+            <div className="stat-card" onClick={() => setActiveTab('contacts')}>
+              <div className="stat-icon">📧</div>
+              <div className="stat-info">
+                <h3>{stats?.totalContacts || 0}</h3>
+                <p>Contact Messages</p>
+              </div>
+            </div>
+            <div className="stat-card" onClick={() => setActiveTab('notices')}>
+              <div className="stat-icon">📢</div>
+              <div className="stat-info">
+                <h3>{stats?.totalNotices || 0}</h3>
+                <p>Notices Published</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Fee Type Breakdown */}
+        {stats?.paymentMethodStats && stats.paymentMethodStats.length > 0 && (
+          <div className="kpi-section">
+            <h3>💰 Revenue by Fee Type</h3>
+            <div className="breakdown-grid">
+              {stats.paymentMethodStats.map((item, idx) => (
+                <div key={idx} className="breakdown-card">
+                  <div className="breakdown-title">{item.fee_type || 'Other'}</div>
+                  <div className="breakdown-value">₹{parseFloat(item.total || 0).toLocaleString('en-IN')}</div>
+                  <div className="breakdown-count">{item.count} transactions</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Admissions by Class */}
+        {stats?.admissionsByClass && stats.admissionsByClass.length > 0 && (
+          <div className="kpi-section">
+            <h3>📚 Admissions by Class</h3>
+            <div className="class-grid">
+              {stats.admissionsByClass.map((item, idx) => (
+                <div key={idx} className="class-card">
+                  <div className="class-name">Class {item.admission_class}</div>
+                  <div className="class-count">{item.count} students</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Contact Status */}
+        {stats?.contactStats && stats.contactStats.length > 0 && (
+          <div className="kpi-section">
+            <h3>📬 Contact Message Status</h3>
+            <div className="status-grid">
+              {stats.contactStats.map((item, idx) => (
+                <div key={idx} className={`status-card ${item.status}`}>
+                  <div className="status-count">{item.count}</div>
+                  <div className="status-label">{item.status || 'Unknown'}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Quick Actions */}
         <div className="quick-actions">
-          <h3>Quick Actions</h3>
+          <h3>⚡ Quick Actions</h3>
           <div className="action-buttons">
-            <button onClick={() => setActiveTab('admissions')}>View Admissions</button>
+            <button onClick={() => setActiveTab('admissions')}>Manage Admissions</button>
             <button onClick={() => setActiveTab('payments')}>View Payments</button>
             <button onClick={() => setActiveTab('phonepe')}>PhonePe Status</button>
             <button onClick={() => setActiveTab('fees')}>Manage Fees</button>
+            <button onClick={() => setActiveTab('contacts')}>View Contacts</button>
+            <button onClick={() => setActiveTab('notices')}>Publish Notice</button>
           </div>
         </div>
       </>

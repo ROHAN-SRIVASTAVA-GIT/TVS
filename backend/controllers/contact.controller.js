@@ -1,6 +1,7 @@
 const Contact = require('../models/Contact');
 const { contactValidator } = require('../validators/contact.validator');
 const logger = require('../config/logger');
+const emailService = require('../utils/emailService');
 
 class ContactController {
   static async submitContact(req, res) {
@@ -24,6 +25,40 @@ class ContactController {
       });
 
       logger.info(`Contact submission received: ${contact.id}`);
+
+      // Send notification to school admin
+      try {
+        const adminContent = `
+          <div class="highlight-box" style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%); padding: 25px; border-radius: 15px; color: white;">
+            <h3 style="margin: 0 0 15px 0; color: white;">📬 New Contact Form Submission</h3>
+            <div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 10px;">
+              <p style="margin: 8px 0; color: white;"><strong>Name:</strong> ${value.name}</p>
+              <p style="margin: 8px 0; color: white;"><strong>Email:</strong> ${value.email}</p>
+              <p style="margin: 8px 0; color: white;"><strong>Phone:</strong> ${value.phone || 'N/A'}</p>
+              <p style="margin: 8px 0; color: white;"><strong>Subject:</strong> ${value.subject}</p>
+            </div>
+            <div style="background: white; padding: 15px; border-radius: 10px; margin-top: 15px; color: #333;">
+              <strong>Message:</strong><br/>
+              ${value.message}
+            </div>
+            <p style="margin: 15px 0 0 0; color: white; font-size: 12px;">Submitted on: ${new Date().toLocaleString()}</p>
+          </div>
+        `;
+        await emailService.sendEmail(
+          process.env.SCHOOL_EMAIL || 'topviewpublicschool@gmail.com',
+          `📬 New Contact Message - ${value.name}`,
+          emailService.baseEmailTemplate(adminContent)
+        );
+      } catch (emailErr) {
+        logger.error('Failed to send admin notification email:', emailErr);
+      }
+
+      // Send confirmation to user
+      try {
+        await emailService.sendContactConfirmation(value.email, value.name, value.subject);
+      } catch (emailErr) {
+        logger.error('Failed to send user confirmation email:', emailErr);
+      }
 
       res.status(201).json({
         success: true,

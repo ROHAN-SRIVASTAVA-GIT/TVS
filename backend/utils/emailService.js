@@ -400,10 +400,83 @@ const sendWelcomeEmail = async (email, name) => {
   return sendEmail(email, `🎉 Welcome to ${SCHOOL_NAME} Portal`, baseEmailTemplate(content));
 };
 
+const sendAdminReplyEmail = async (email, userName, originalSubject, replyMessage) => {
+  const content = `
+    <div class="success-icon">📧</div>
+    <div class="greeting">Dear ${userName},</div>
+    <div class="message">
+      Thank you for contacting ${SCHOOL_NAME}. We have received your query regarding "<strong>${originalSubject}</strong>" and here is our response:
+    </div>
+    <div class="highlight-box" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; border-radius: 15px; color: white;">
+      <p style="color: white; font-size: 16px; line-height: 1.8; margin: 0;">${replyMessage}</p>
+    </div>
+    <div class="message">
+      If you have any further questions or need additional assistance, please don't hesitate to reach out to us.
+    </div>
+    <div class="contact-info" style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0;">
+      <h4 style="margin: 0 0 15px 0; color: #1a1a2e;">Contact Information</h4>
+      <p style="margin: 5px 0; color: #666;"><strong>Address:</strong> ${SCHOOL_ADDRESS}</p>
+      <p style="margin: 5px 0; color: #666;"><strong>Email:</strong> ${SCHOOL_EMAIL}</p>
+      <p style="margin: 5px 0; color: #666;"><strong>Phone:</strong> ${SCHOOL_PHONE}</p>
+    </div>
+    <div class="verified-badge">✓ Response from School Administration</div>
+    <div class="message" style="font-size: 12px; color: #999; margin-top: 20px;">
+      This is an automated response from ${SCHOOL_NAME}. Please do not reply directly to this email. For urgent queries, please call us during school hours.
+    </div>
+    <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/contact" class="button">Visit Contact Page</a>
+  `;
+
+  return sendEmail(email, `Re: ${originalSubject} - ${SCHOOL_NAME}`, baseEmailTemplate(content));
+};
+
+const sendContactConfirmation = async (email, name, subject) => {
+  const content = `
+    <div class="success-icon">✅</div>
+    <div class="greeting">Dear ${name},</div>
+    <div class="message">
+      Thank you for contacting ${SCHOOL_NAME}. We have received your message and our team will review it shortly.
+    </div>
+    <div class="highlight-box">
+      <div class="highlight-item">
+        <span class="highlight-label">Your Subject</span>
+        <span class="highlight-value">${subject}</span>
+      </div>
+      <div class="highlight-item">
+        <span class="highlight-label">Reference ID</span>
+        <span class="highlight-value">TVPS-CONTACT-${Date.now()}</span>
+      </div>
+    </div>
+    <div class="message">
+      <strong>What happens next?</strong><br/>
+      📧 Our administration team will review your message within 24-48 hours<br/>
+      📞 We may contact you on your phone number for further clarification<br/>
+      💬 A detailed response will be sent to your email address
+    </div>
+    <div class="contact-info">
+      <h4>School Contact Information</h4>
+      <p><strong>Address:</strong> ${SCHOOL_ADDRESS}</p>
+      <p><strong>Email:</strong> ${SCHOOL_EMAIL}</p>
+      <p><strong>Phone:</strong> ${SCHOOL_PHONE}</p>
+      <p><strong>Office Hours:</strong> Mon - Sat, 9:00 AM - 5:00 PM</p>
+    </div>
+    <div class="verified-badge">✓ Message Received</div>
+    <div class="message" style="font-size: 12px; color: #999; margin-top: 20px;">
+      Please do not reply to this automated email. For urgent inquiries, please contact us during school office hours.
+    </div>
+    <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/contact" class="button">Visit Contact Page</a>
+    <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/about" class="button" style="background: #28a745; margin-left: 10px;">Learn More About Us</a>
+  `;
+
+  return sendEmail(email, `📬 We Received Your Message - ${SCHOOL_NAME}`, baseEmailTemplate(content));
+};
+
 module.exports = {
   sendEmail,
   sendAdmissionConfirmation,
   sendPaymentReceipt,
   sendContactReply,
-  sendWelcomeEmail
+  sendWelcomeEmail,
+  sendAdminReplyEmail,
+  sendContactConfirmation,
+  baseEmailTemplate
 };

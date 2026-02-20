@@ -12,13 +12,80 @@ const { db } = require('../config/db');
 class AdminController {
   static async getDashboardStats(req, res) {
     try {
-      const [users, admissions, paymentStats, contacts, notices] = await Promise.all([
+      const { period } = req.query;
+      let dateFilter = '';
+      if (period === 'today') {
+        dateFilter = "AND created_at >= CURRENT_DATE";
+      } else if (period === 'week') {
+        dateFilter = "AND created_at >= CURRENT_DATE - INTERVAL '7 days'";
+      } else if (period === 'month') {
+        dateFilter = "AND created_at >= CURRENT_DATE - INTERVAL '30 days'";
+      } else if (period === 'year') {
+        dateFilter = "AND created_at >= CURRENT_DATE - INTERVAL '365 days'";
+      }
+
+      const [
+        users, admissions, paymentStats, contacts, notices,
+        students, recentPayments, recentAdmissions, revenueByMonth, admissionsByClass
+      ] = await Promise.all([
         User.getAllUsers(1000, 0),
         Admission.getAllAdmissions(null, 1000, 0),
         Payment.getPaymentStats(),
         Contact.getAll(null, 1000, 0),
-        Notice.getAll(1000, 0)
+        Notice.getAll(1000, 0),
+        Student.getAllStudents(1000, 0),
+        db.query(`SELECT * FROM payments WHERE status = 'completed' ORDER BY created_at DESC LIMIT 10`),
+        db.query(`SELECT * FROM admissions ORDER BY created_at DESC LIMIT 10`),
+        db.query(`
+          SELECT DATE_TRUNC('month', created_at) as month, SUM(amount) as total 
+          FROM payments 
+          WHERE status = 'completed' AND created_at >= CURRENT_DATE - INTERVAL '12 months'
+          GROUP BY DATE_TRUNC('month', created_at)
+          ORDER BY month
+        `),
+        db.query(`
+          SELECT admission_class, COUNT(*) as count 
+          FROM admissions 
+          WHERE status = 'approved'
+          GROUP BY admission_class
+          ORDER BY count DESC
+        `)
       ]);
+
+      // Get additional stats
+      const genderStats = await db.query(`
+        SELECT gender, COUNT(*) as count FROM admissions 
+        WHERE gender IS NOT NULL GROUP BY gender
+      `);
+      
+      const paymentMethodStats = await db.query(`
+        SELECT fee_type, COUNT(*) as count, SUM(amount) as total 
+        FROM payments WHERE status = 'completed' 
+        GROUP BY fee_type
+      `);
+
+      const contactStats = await db.query(`
+        SELECT status, COUNT(*) as count FROM contacts GROUP BY status
+      `);
+
+      const noticeStats = await db.query(`
+        SELECT priority, COUNT(*) as count FROM notices GROUP BY priority
+      `);
+
+      const todayRevenue = await db.query(`
+        SELECT COALESCE(SUM(amount), 0) as total FROM payments 
+        WHERE status = 'completed' AND created_at >= CURRENT_DATE
+      `);
+
+      const weekRevenue = await db.query(`
+        SELECT COALESCE(SUM(amount), 0) as total FROM payments 
+        WHERE status = 'completed' AND created_at >= CURRENT_DATE - INTERVAL '7 days'
+      `);
+
+      const monthRevenue = await db.query(`
+        SELECT COALESCE(SUM(amount), 0) as total FROM payments 
+        WHERE status = 'completed' AND created_at >= CURRENT_DATE - INTERVAL '30 days'
+      `);
 
       res.status(200).json({
         success: true,
@@ -29,8 +96,27 @@ class AdminController {
           totalRevenue: paymentStats.total_amount,
           completedPayments: paymentStats.completed_payments,
           pendingPayments: paymentStats.pending_payments,
+          failedPayments: paymentStats.failed_payments || 0,
           totalContacts: contacts.total,
-          totalNotices: notices.total
+          totalNotices: notices.total,
+          totalStudents: students.total || 0,
+          // Time-based revenue
+          todayRevenue: parseFloat(todayRevenue.rows[0]?.total || 0),
+          weekRevenue: parseFloat(weekRevenue.rows[0]?.total || 0),
+          monthRevenue: parseFloat(monthRevenue.rows[0]?.total || 0),
+          // Detailed stats
+          recentPayments: recentPayments.rows,
+          recentAdmissions: recentAdmissions.rows,
+          revenueByMonth: revenueByMonth.rows,
+          admissionsByClass: admissionsByClass.rows,
+          genderStats: genderStats.rows,
+          paymentMethodStats: paymentMethodStats.rows,
+          contactStats: contactStats.rows,
+          noticeStats: noticeStats.rows,
+          // Admission status breakdown
+          pendingAdmissions: admissions.admissions?.filter(a => a.status === 'pending').length || 0,
+          approvedAdmissions: admissions.admissions?.filter(a => a.status === 'approved').length || 0,
+          rejectedAdmissions: admissions.admissions?.filter(a => a.status === 'rejected').length || 0
         }
       });
     } catch (error) {
@@ -335,6 +421,42 @@ class AdminController {
     } catch (error) {
       logger.error('Delete contact error:', error);
       res.status(500).json({ success: false, message: 'Failed to delete contact' });
+    }
+  }
+
+  static async replyToContact(req, res) {
+    try {
+      const { id } = req.params;
+      const { replyMessage, subject } = req.body;
+
+      if (!replyMessage) {
+        return res.status(400).json({ success: false, message: 'Reply message is required' });
+      }
+
+      // Get contact details
+      const contactResult = await db.query('SELECT * FROM contacts WHERE id = $1', [id]);
+      const contact = contactResult.rows[0];
+
+      if (!contact) {
+        return res.status(404).json({ success: false, message: 'Contact not found' });
+      }
+
+      // Update contact status to replied
+      await db.query('UPDATE contacts SET status = $1 WHERE id = $2', ['replied', id]);
+
+      // Send reply email
+      const { sendAdminReplyEmail } = require('../utils/emailService');
+      await sendAdminReplyEmail(
+        contact.email,
+        contact.name,
+        subject || contact.subject,
+        replyMessage
+      );
+
+      res.status(200).json({ success: true, message: 'Reply sent successfully' });
+    } catch (error) {
+      logger.error('Reply to contact error:', error);
+      res.status(500).json({ success: false, message: 'Failed to send reply' });
     }
   }
 

@@ -11,7 +11,7 @@ class Student {
           name VARCHAR(255),
           admission_number VARCHAR(100) UNIQUE,
           roll_number VARCHAR(50),
-          class_name VARCHAR(50),
+          class VARCHAR(50),
           section VARCHAR(10),
           father_name VARCHAR(255),
           mother_name VARCHAR(255),
@@ -32,14 +32,14 @@ class Student {
       `);
       
       await db.query(`CREATE INDEX IF NOT EXISTS idx_students_user_id ON students(user_id)`);
-      await db.query(`CREATE INDEX IF NOT EXISTS idx_students_class ON students(class_name)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_students_class ON students(class)`);
       await db.query(`CREATE INDEX IF NOT EXISTS idx_students_roll_number ON students(roll_number)`);
       await db.query(`CREATE INDEX IF NOT EXISTS idx_students_admission ON students(admission_number)`);
       
       // Add missing columns
       await db.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS name VARCHAR(255)`).catch(() => {});
       await db.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS admission_number VARCHAR(100)`).catch(() => {});
-      await db.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS class_name VARCHAR(50)`).catch(() => {});
+      await db.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS class VARCHAR(50)`).catch(() => {});
       await db.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS father_name VARCHAR(255)`).catch(() => {});
       await db.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS mother_name VARCHAR(255)`).catch(() => {});
       await db.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS phone VARCHAR(20)`).catch(() => {});
@@ -144,6 +144,13 @@ class Student {
       logger.error('Error updating student:', error);
       throw error;
     }
+  }
+
+  static async getAllStudents(limit = 100, offset = 0) {
+    const query = 'SELECT * FROM students ORDER BY created_at DESC LIMIT $1 OFFSET $2';
+    const result = await db.query(query, [limit, offset]);
+    const countResult = await db.query('SELECT COUNT(*) FROM students');
+    return { students: result.rows, total: parseInt(countResult.rows[0].count) };
   }
 }
 

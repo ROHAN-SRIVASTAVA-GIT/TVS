@@ -4,33 +4,31 @@ const logger = require('../config/logger');
 class FeeStructure {
   static async createTable() {
     try {
-      await db.query(`
-        CREATE TABLE IF NOT EXISTS fee_structures (
-          id SERIAL PRIMARY KEY,
-          class_name VARCHAR(50) NOT NULL,
-          tuition_fee DECIMAL(10, 2),
-          transport_fee DECIMAL(10, 2),
-          uniform_fee DECIMAL(10, 2),
-          exam_fee DECIMAL(10, 2),
-          activity_fee DECIMAL(10, 2),
-          total_fee DECIMAL(10, 2),
-          description TEXT,
-          academic_year VARCHAR(20),
-          is_active BOOLEAN DEFAULT true,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE(class_name, academic_year)
-        )
+      // Check if table exists and has old 'class' column
+      const tableExists = await db.query(`
+        SELECT column_name FROM information_schema.columns 
+        WHERE table_name = 'fee_structures' AND column_name = 'class'
       `);
       
-      await db.query(`CREATE INDEX IF NOT EXISTS idx_fee_structures_class ON fee_structures(class_name)`);
-      
-      // Add missing column
+      if (tableExists.rows.length > 0) {
+        // Rename 'class' to 'class_name' if it exists
+        await db.query(`ALTER TABLE fee_structures RENAME COLUMN class TO class_name`).catch(() => {});
+      }
+
+      // Add missing columns if not exist
       await db.query(`ALTER TABLE fee_structures ADD COLUMN IF NOT EXISTS class_name VARCHAR(50)`).catch(() => {});
+      await db.query(`ALTER TABLE fee_structures ADD COLUMN IF NOT EXISTS tuition_fee DECIMAL(10, 2)`).catch(() => {});
+      await db.query(`ALTER TABLE fee_structures ADD COLUMN IF NOT EXISTS transport_fee DECIMAL(10, 2)`).catch(() => {});
+      await db.query(`ALTER TABLE fee_structures ADD COLUMN IF NOT EXISTS uniform_fee DECIMAL(10, 2)`).catch(() => {});
+      await db.query(`ALTER TABLE fee_structures ADD COLUMN IF NOT EXISTS exam_fee DECIMAL(10, 2)`).catch(() => {});
+      await db.query(`ALTER TABLE fee_structures ADD COLUMN IF NOT EXISTS activity_fee DECIMAL(10, 2)`).catch(() => {});
+      await db.query(`ALTER TABLE fee_structures ADD COLUMN IF NOT EXISTS total_fee DECIMAL(10, 2)`).catch(() => {});
       
-      logger.info('Fee Structures table created successfully');
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_fee_structures_class ON fee_structures(class_name)`).catch(() => {});
+      
+      logger.info('Fee Structures table updated successfully');
     } catch (error) {
-      logger.error('Error creating fee_structures table:', error);
+      logger.error('Error updating fee_structures table:', error);
     }
   }
 
@@ -81,7 +79,7 @@ class FeeStructure {
   }
 
   static async getAll() {
-    const query = 'SELECT * FROM fee_structures WHERE is_active = true ORDER BY class';
+    const query = 'SELECT * FROM fee_structures WHERE is_active = true ORDER BY class_name';
     
     try {
       const result = await db.query(query);
