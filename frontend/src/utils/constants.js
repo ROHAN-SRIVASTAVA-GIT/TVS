@@ -15,6 +15,6 @@ export const PAYMENT_STATUS = ['pending', 'completed', 'failed'];
 export const SCHOOL_INFO = {
   name: 'Top View Public School',
   email: 'topviewpublicschool@gmail.com',
-  phone: '9470525155',
+  phone: '9470525155 / 9199204566',
   address: 'Manju Sadan Basdiha, Near College Gate, Surya Mandir, Panki Palamu, Jharkhand 822122'
 };

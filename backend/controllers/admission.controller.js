@@ -51,10 +51,11 @@ class AdmissionController {
         admission_number: admissionNumber,
         admission_date: new Date(),
         photo_url: req.file ? `/uploads/${req.file.filename}` : null,
+        payment_id: value.paymentId || null,
         status: 'pending'
       });
 
-      await sendAdmissionConfirmation(value.email, value.studentName, admissionNumber);
+      await sendAdmissionConfirmation(value.email, value.studentName, admissionNumber, value.admissionClass, value.academicYear);
 
       logger.info(`Admission submitted: ${admission.id} - Form: ${formNumber}`);
 
@@ -112,6 +113,32 @@ class AdmissionController {
       res.status(500).json({
         success: false,
         message: 'Failed to fetch admissions'
+      });
+    }
+  }
+
+  static async getAdmissionByPaymentId(req, res) {
+    try {
+      const { paymentId } = req.query;
+
+      if (!paymentId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Payment ID is required'
+        });
+      }
+
+      const admission = await Admission.findByPaymentId(paymentId);
+
+      res.status(200).json({
+        success: true,
+        data: admission
+      });
+    } catch (error) {
+      logger.error('Fetch admission by payment ID error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch admission'
       });
     }
   }

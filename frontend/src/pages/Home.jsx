@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import HeroSection from '../components/HeroSection';
 import axiosInstance from '../api/axios';
 import './Home.css';
@@ -17,6 +17,40 @@ const Home = () => {
   const [processingPayment, setProcessingPayment] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState('');
   const [paymentError, setPaymentError] = useState('');
+  const [showOTPModal, setShowOTPModal] = useState(false);
+  const [otpStep, setOtpStep] = useState(1);
+  const [otp, setOtp] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
+  const [receiptAccessToken, setReceiptAccessToken] = useState('');
+  const [pendingReceiptId, setPendingReceiptId] = useState(null);
+  const [currentOrderId, setCurrentOrderId] = useState(null);
+  const [pollingStatus, setPollingStatus] = useState('idle');
+
+  // Check for pending payment on page load
+  useEffect(() => {
+    // First check localStorage
+    const pendingOrderId = localStorage.getItem('pendingPaymentOrderId');
+    
+    // Also check URL for orderId (after redirect from PhonePe)
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlOrderId = urlParams.get('orderId');
+    const orderIdToCheck = pendingOrderId || urlOrderId;
+    
+    if (orderIdToCheck) {
+      console.log('Found pending payment order:', orderIdToCheck);
+      // Clear URL params
+      if (urlOrderId) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+      // Start polling but don't auto-open modal
+      setShowPaymentPreview(true);
+      setProcessingPayment(true);
+      setPaymentSuccess('Checking payment status...');
+      setPollingStatus('checking');
+      startPaymentPolling(orderIdToCheck, 15);
+    }
+  }, []);
 
   const features = [
     {
@@ -41,7 +75,19 @@ const Home = () => {
     }
   ];
 
-  const classes = ['NUR', 'LKG', 'UKG', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
+  const classes = [
+    { name: 'NUR', age: '2-3 years' },
+    { name: 'LKG', age: '3-4 years' },
+    { name: 'UKG', age: '4-5 years' },
+    { name: 'I', age: '5-6 years' },
+    { name: 'II', age: '6-7 years' },
+    { name: 'III', age: '7-8 years' },
+    { name: 'IV', age: '8-9 years' },
+    { name: 'V', age: '9-10 years' },
+    { name: 'VI', age: '10-11 years' },
+    { name: 'VII', age: '11-12 years' },
+    { name: 'VIII', age: '12-13 years' }
+  ];
 
   const handleReceiptSearch = async (e) => {
     e.preventDefault();
@@ -89,18 +135,239 @@ const Home = () => {
     }
   };
 
+  const initiateReceiptDownload = (receipt) => {
+    const user = JSON.parse(localStorage.getItem('user'));
+    if (user) {
+      window.open(`${API_URL}/payments/receipt/${receipt.id}`, '_self');
+    } else {
+      setPendingReceiptId(receipt.id);
+      setShowOTPModal(true);
+      setOtpStep(1);
+      setOtp('');
+      setError('');
+    }
+  };
+
+  const sendReceiptOTP = async () => {
+    let email = '';
+    if (searchType === 'email') {
+      email = searchValue;
+    } else if (searchType === 'phone' && receipts.length > 0) {
+      email = receipts[0].parent_email;
+    } else if (searchType === 'order' && selectedPayment) {
+      email = selectedPayment.parent_email;
+    }
+
+    if (!email) {
+      setError('Email is required for OTP verification. Please search by email first.');
+      return;
+    }
+
+    setOtpLoading(true);
+    setError('');
+
+    try {
+      await axiosInstance.post('/auth/otp/send', {
+        email: email,
+        purpose: 'receipt'
+      });
+      
+      setOtpStep(2);
+      setSuccess('OTP sent to your email!');
+      setResendTimer(60);
+      
+      const interval = setInterval(() => {
+        setResendTimer(prev => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to send OTP');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const verifyReceiptOTP = async () => {
+    if (!otp || otp.length !== 6) {
+      setError('Please enter valid 6-digit OTP');
+      return;
+    }
+
+    let email = '';
+    if (searchType === 'email') {
+      email = searchValue;
+    } else if (searchType === 'phone' && receipts.length > 0) {
+      email = receipts[0].parent_email;
+    } else if (searchType === 'order' && selectedPayment) {
+      email = selectedPayment.parent_email;
+    }
+
+    setOtpLoading(true);
+    setError('');
+
+    try {
+      const response = await axiosInstance.post('/auth/otp/verify', {
+        email: email,
+        otp,
+        purpose: 'receipt'
+      });
+
+      if (response.success) {
+        setReceiptAccessToken(response.data.verificationToken);
+        setShowOTPModal(false);
+        if (pendingReceiptId) {
+          window.open(`${API_URL}/payments/receipt/${pendingReceiptId}`, '_self');
+        }
+        setPendingReceiptId(null);
+        setOtp('');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Invalid OTP');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const [success, setSuccess] = useState('');
+
   const proceedWithPayment = (payment) => {
+    console.log('proceedWithPayment called with payment ID:', payment.id, 'status:', payment.status);
+    
+    // Always show modal first with loading state
     setSelectedPayment(payment);
     setShowPaymentPreview(true);
-    setPaymentSuccess('');
     setPaymentError('');
+    setPaymentSuccess('Loading payment details...');
+    setPollingStatus('checking');
+    setProcessingPayment(true);
+    
+    // Then check the current status from database
+    checkPaymentStatusFromDB(payment.id, payment);
+  };
+
+  // Check payment status from database
+  const checkPaymentStatusFromDB = async (paymentId, originalPayment) => {
+    try {
+      const response = await axiosInstance.get(`/payments/status/${paymentId}`);
+      console.log('Payment status from DB:', response.data);
+
+      if (response.success && response.data.data) {
+        const dbPayment = response.data.data;
+        
+        // Update selected payment with fresh data
+        setSelectedPayment({ ...originalPayment, ...dbPayment });
+
+        if (dbPayment.status === 'completed') {
+          // Payment is completed, show success
+          setPaymentSuccess('Payment completed successfully!');
+          setPollingStatus('success');
+          setProcessingPayment(false);
+          
+          // Refresh receipts
+          handleReceiptSearch({ preventDefault: () => {} });
+        } else if (dbPayment.status === 'pending') {
+          // Payment still pending, check if there's an order ID
+          const orderId = dbPayment.phonepe_order_id || dbPayment.razorpay_order_id || dbPayment.transaction_id;
+          
+          if (orderId) {
+            // Has order ID, check with PhonePe
+            setPaymentSuccess('Checking payment with provider...');
+            startPaymentPolling(orderId, 15);
+          } else {
+            // No order ID yet, show the Pay Now button
+            setPaymentSuccess('');
+            setPollingStatus('idle');
+            setProcessingPayment(false);
+          }
+        } else if (dbPayment.status === 'failed') {
+          // Payment failed, allow retry
+          setPaymentError('Previous payment failed. You can try again.');
+          setPollingStatus('idle');
+          setProcessingPayment(false);
+        } else {
+          setPaymentSuccess('');
+          setPollingStatus('idle');
+          setProcessingPayment(false);
+        }
+      } else {
+        setPaymentError('Could not check payment status');
+        setPollingStatus('idle');
+        setProcessingPayment(false);
+      }
+    } catch (err) {
+      console.error('Error checking payment status:', err);
+      setPaymentError('Error checking payment status');
+      setPollingStatus('idle');
+      setProcessingPayment(false);
+    }
   };
 
   const initiatePayment = async () => {
     if (!selectedPayment) return;
 
+    // First, check if there's an existing order ID
+    const existingOrderId = selectedPayment.phonepe_order_id || selectedPayment.order_id || selectedPayment.razorpay_order_id;
+    
+    if (existingOrderId) {
+      // Check PhonePe status first
+      setProcessingPayment(true);
+      setPaymentError('');
+      setPollingStatus('checking');
+      setPaymentSuccess('Checking payment status with provider...');
+
+      try {
+        const verifyResponse = await axiosInstance.post('/payments/verify', {
+          merchantOrderId: existingOrderId
+        }, { timeout: 15000 });
+
+        console.log('PhonePe status check:', verifyResponse);
+
+        if (verifyResponse.success && verifyResponse.data.paymentStatus === 'completed') {
+          // Payment already completed
+          setPaymentSuccess('Payment already completed!');
+          setPollingStatus('success');
+          setProcessingPayment(false);
+          handleReceiptSearch({ preventDefault: () => {} });
+          return;
+        } else if (verifyResponse.success && verifyResponse.data.paymentStatus === 'failed') {
+          // Payment failed, create new order
+          setPaymentSuccess('');
+          setPollingStatus('idle');
+          setProcessingPayment(false);
+          // Continue to create new payment below
+        } else {
+          // Payment still pending/created - redirect to payment page
+          setPaymentSuccess('Redirecting to payment page...');
+          
+          // Save order ID
+          localStorage.setItem('pendingPaymentOrderId', existingOrderId);
+          setCurrentOrderId(existingOrderId);
+          
+          // Redirect to PhonePe payment page
+          const redirectUrl = `https://mercury-uat.phonepe.com/transact/uat_v3?token=${selectedPayment.phonepe_token || ''}`;
+          window.open(redirectUrl, '_self');
+          
+          // Start polling
+          startPaymentPolling(existingOrderId, 15);
+          return;
+        }
+      } catch (err) {
+        console.error('Error checking PhonePe status:', err);
+        // Continue to create new payment
+      }
+    }
+
+    // Create new payment order
     setProcessingPayment(true);
     setPaymentError('');
+    setPollingStatus('checking');
+    setPaymentSuccess('Creating payment...');
 
     try {
       const paymentData = {
@@ -118,10 +385,28 @@ const Home = () => {
       const response = await axiosInstance.post('/payments/create-order', paymentData);
 
       if (response.success && response.data.redirectUrl) {
+        // Save order ID and redirect
+        const orderId = response.data.orderId;
+        const phonepeOrderId = response.data.phonepeOrderId;
+        setCurrentOrderId(phonepeOrderId || orderId);
+        localStorage.setItem('pendingPaymentOrderId', phonepeOrderId || orderId);
+        
+        setPaymentSuccess('Redirecting to payment page...');
+        
+        // Redirect to PhonePe payment page
+        window.open(response.data.redirectUrl, '_self');
+        
+        // Start polling for payment status
+        startPaymentPolling(phonepeOrderId || orderId);
+        
         setProcessingPayment(false);
-        setPaymentSuccess('Opening payment page...');
-        window.open(response.data.redirectUrl, '_blank');
       } else if (response.success && response.data.token) {
+        // Save order ID
+        const orderId = response.data.orderId;
+        const phonepeOrderId = response.data.phonepeOrderId;
+        setCurrentOrderId(phonepeOrderId || orderId);
+        localStorage.setItem('pendingPaymentOrderId', phonepeOrderId || orderId);
+        
         const script = document.createElement('script');
         script.src = 'https://cdn.phonepe.com/v1/checkout.js';
         script.async = true;
@@ -137,10 +422,11 @@ const Home = () => {
               publicKey: 'M23Y40Q4NT1KS_2602191640',
             }).then((checkout) => {
               checkout.onSuccess((data) => {
-                verifyPayment(response.data.phonepeOrderId);
+                startPaymentPolling(response.data.phonepeOrderId);
               }).onError((error) => {
                 setPaymentError('Payment failed. Please try again.');
                 setProcessingPayment(false);
+                setPollingStatus('failed');
               }).redirect();
             });
           }
@@ -152,27 +438,68 @@ const Home = () => {
     } catch (err) {
       setPaymentError(err.message || 'Failed to create payment order');
       setProcessingPayment(false);
+      setPollingStatus('failed');
     }
   };
 
-  const verifyPayment = async (phonepeOrderId) => {
-    try {
-      const verifyResponse = await axiosInstance.post('/payments/verify', {
-        phonepeOrderId: phonepeOrderId
-      });
+  // Polling function to check payment status
+  const startPaymentPolling = async (orderId, maxAttempts = 15) => {
+    let attempts = 0;
+    setPaymentSuccess('Waiting for payment completion...');
+    setPollingStatus('checking');
+    
+    const checkStatus = async () => {
+      try {
+        const verifyResponse = await axiosInstance.post('/payments/verify', {
+          merchantOrderId: orderId
+        }, { timeout: 10000 });
 
-      if (verifyResponse.success && verifyResponse.data.paymentStatus === 'completed') {
-        setPaymentSuccess('Payment successful! Receipt will be sent to your email.');
-        setShowPaymentPreview(false);
-        handleReceiptSearch({ preventDefault: () => {} });
-      } else {
-        setPaymentError('Payment verification failed');
+        console.log('Payment verify response:', verifyResponse);
+
+        if (verifyResponse.success) {
+          if (verifyResponse.data.paymentStatus === 'completed') {
+            setPaymentSuccess('Payment successful!');
+            setPollingStatus('success');
+            localStorage.removeItem('pendingPaymentOrderId');
+            
+            // Refresh receipts and keep the modal open with success
+            handleReceiptSearch({ preventDefault: () => {} });
+            setProcessingPayment(false);
+            return;
+          } else if (verifyResponse.data.paymentStatus === 'failed') {
+            setPaymentError('Payment failed. Please try again.');
+            setPollingStatus('failed');
+            setProcessingPayment(false);
+            localStorage.removeItem('pendingPaymentOrderId');
+            return;
+          }
+        }
+
+        attempts++;
+        if (attempts >= maxAttempts) {
+          setPaymentError('Payment verification timed out. Please check your payment status manually.');
+          setPollingStatus('failed');
+          setProcessingPayment(false);
+          localStorage.removeItem('pendingPaymentOrderId');
+          return;
+        }
+
+        // Continue polling every 3 seconds
+        setTimeout(checkStatus, 5000);
+      } catch (err) {
+        attempts++;
+        if (attempts >= maxAttempts) {
+          setPaymentError('Payment verification failed. Please check your payment status manually.');
+          setPollingStatus('failed');
+          setProcessingPayment(false);
+          localStorage.removeItem('pendingPaymentOrderId');
+          return;
+        }
+        setTimeout(checkStatus, 5000);
       }
-      setProcessingPayment(false);
-    } catch (err) {
-      setPaymentError('Failed to verify payment');
-      setProcessingPayment(false);
-    }
+    };
+
+    checkStatus();
   };
 
   return (
@@ -199,9 +526,9 @@ const Home = () => {
           <h2>Classes Offered</h2>
           <div className="classes-grid">
             {classes.map((cls) => (
-              <div key={cls} className="class-card">
-                <div className="class-name">Class {cls}</div>
-                <div className="class-info">Age Group</div>
+              <div key={cls.name} className="class-card">
+                <div className="class-name">Class {cls.name}</div>
+                <div className="class-info">{cls.age}</div>
               </div>
             ))}
           </div>
@@ -303,20 +630,29 @@ const Home = () => {
                       <p><strong>Fee Type:</strong> {(receipt.fee_type || '').charAt(0).toUpperCase() + (receipt.fee_type || '').slice(1)} Fee</p>
                       <p><strong>Date:</strong> {new Date(receipt.created_at).toLocaleDateString('en-IN')}</p>
                       <p><strong>Status:</strong> <span className={`status ${receipt.status}`}>{receipt.status}</span></p>
+                      {receipt.order_id && <p><strong>Order ID:</strong> {receipt.order_id}</p>}
                     </div>
                     <div className="receipt-actions">
-                      {(receipt.status === 'pending' || receipt.status === 'failed') && (
+                      {receipt.status === 'pending' && (
                         <button 
                           className="proceed-pay-btn"
                           onClick={() => proceedWithPayment(receipt)}
                         >
-                          Pay Now
+                          {(receipt.phonepe_order_id || receipt.order_id || receipt.razorpay_order_id || receipt.transactionId || receipt.transaction_id) ? 'Continue Payment' : 'Pay Now'}
+                        </button>
+                      )}
+                      {receipt.status === 'failed' && (
+                        <button 
+                          className="proceed-pay-btn"
+                          onClick={() => proceedWithPayment(receipt)}
+                        >
+                          Retry Payment
                         </button>
                       )}
                       {receipt.status === 'completed' && (
                         <button 
                           className="download-btn"
-                          onClick={() => window.open(`${API_URL}/payments/receipt/${receipt.id}`, '_blank')}
+                          onClick={() => initiateReceiptDownload(receipt)}
                         >
                           Download PDF
                         </button>
@@ -367,29 +703,160 @@ const Home = () => {
                   </div>
                 </div>
                 
-                {paymentError && <div className="error-message">{paymentError}</div>}
-                {paymentSuccess && <div className="success-message">{paymentSuccess}</div>}
+                {/* Show complete loading state when checking payment status */}
+                {pollingStatus === 'checking' && (
+                  <div className="payment-loading-state">
+                    <div className="loading-spinner-large"></div>
+                    <p className="loading-text">{paymentSuccess || 'Checking payment status...'}</p>
+                    <p className="loading-subtext">Please wait while we verify your payment</p>
+                  </div>
+                )}
                 
-                <div className="preview-actions">
-                  <button 
-                    className="proceed-pay-btn"
-                    onClick={initiatePayment}
-                    disabled={processingPayment}
-                  >
-                    {processingPayment ? 'Processing...' : `Pay ₹${parseFloat(selectedPayment.amount).toLocaleString('en-IN')} via PhonePe`}
-                  </button>
+                {paymentError && <div className="error-message">{paymentError}</div>}
+                
+                {pollingStatus === 'success' && (
+                  <div className="success-message">{paymentSuccess}</div>
+                )}
+                
+                {/* Show success receipt after payment completed */}
+                {pollingStatus === 'success' && (
+                  <div className="payment-success-receipt">
+                    <div className="success-icon">✓</div>
+                    <h4>Payment Successful!</h4>
+                    <div className="success-details">
+                      <p><strong>Student Name:</strong> {selectedPayment?.student_name}</p>
+                      <p><strong>Class:</strong> {selectedPayment?.class}</p>
+                      <p><strong>Amount Paid:</strong> ₹{parseFloat(selectedPayment?.amount || 0).toLocaleString('en-IN')}</p>
+                      <p><strong>Fee Type:</strong> {selectedPayment?.fee_type}</p>
+                    </div>
+                    <div className="receipt-actions">
+                      <a 
+                        href={`${API_URL}/payments/receipt/${selectedPayment.id}`}
+                        target="_self"
+                        rel="noopener noreferrer"
+                        className="btn-download-pdf"
+                      >
+                        📄 Download PDF Receipt
+                      </a>
+                      <button 
+                        onClick={() => window.print()} 
+                        className="btn-print"
+                      >
+                        🖨️ Print Receipt
+                      </button>
+                    </div>
+                    <button 
+                      className="close-success-btn"
+                      onClick={() => { 
+                        setShowPaymentPreview(false); 
+                        setSelectedPayment(null); 
+                        setPaymentSuccess('');
+                        setPollingStatus('idle');
+                        handleReceiptSearch({ preventDefault: () => {} });
+                      }}
+                    >
+                      Close
+                    </button>
+                  </div>
+                )}
+                
+                {/* Show payment buttons when not polling or success */}
+                {pollingStatus !== 'checking' && pollingStatus !== 'success' && (
+                  <div className="preview-actions">
+                    <button 
+                      className="proceed-pay-btn"
+                      onClick={initiatePayment}
+                      disabled={processingPayment}
+                    >
+                      {processingPayment ? 'Processing...' : `Pay ₹${parseFloat(selectedPayment.amount).toLocaleString('en-IN')} via PhonePe`}
+                    </button>
+                    <button 
+                      className="cancel-btn"
+                      onClick={() => { setShowPaymentPreview(false); setSelectedPayment(null); setPaymentError(''); }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+                
+                {/* Show cancel button during polling */}
+                {pollingStatus === 'checking' && (
                   <button 
                     className="cancel-btn"
-                    onClick={() => { setShowPaymentPreview(false); setSelectedPayment(null); setPaymentError(''); }}
+                    onClick={() => { 
+                      localStorage.removeItem('pendingPaymentOrderId'); 
+                      setShowPaymentPreview(false); 
+                      setSelectedPayment(null); 
+                      setPaymentError(''); 
+                      setPaymentSuccess('');
+                      setPollingStatus('idle');
+                    }}
                   >
                     Cancel
                   </button>
-                </div>
+                )}
               </div>
             </div>
           )}
         </div>
       </section>
+
+      {showOTPModal && (
+        <div className="otp-modal-overlay">
+          <div className="otp-modal">
+            <h3>{otpStep === 1 ? 'Verify Your Identity' : 'Enter OTP'}</h3>
+            {error && <div className="error-message">{error}</div>}
+            {success && <div className="success-message">{success}</div>}
+
+            {otpStep === 1 ? (
+              <div className="otp-step-1">
+                <p>To download the receipt, we need to verify your identity.</p>
+                <p className="otp-info">We'll send an OTP to your email address.</p>
+                <button 
+                  className="send-otp-btn"
+                  onClick={sendReceiptOTP}
+                  disabled={otpLoading}
+                >
+                  {otpLoading ? 'Sending OTP...' : 'Send OTP'}
+                </button>
+              </div>
+            ) : (
+              <div className="otp-step-2">
+                <p>Enter the 6-digit OTP sent to your email</p>
+                <input
+                  type="text"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="Enter 6-digit OTP"
+                  maxLength={6}
+                  className="otp-input"
+                />
+                <button 
+                  className="verify-otp-btn"
+                  onClick={verifyReceiptOTP}
+                  disabled={otpLoading || otp.length !== 6}
+                >
+                  {otpLoading ? 'Verifying...' : 'Verify & Download'}
+                </button>
+                <button 
+                  className="resend-btn"
+                  onClick={sendReceiptOTP}
+                  disabled={resendTimer > 0}
+                >
+                  {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend OTP'}
+                </button>
+              </div>
+            )}
+
+            <button 
+              className="close-otp-modal"
+              onClick={() => { setShowOTPModal(false); setPendingReceiptId(null); setError(''); setSuccess(''); }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

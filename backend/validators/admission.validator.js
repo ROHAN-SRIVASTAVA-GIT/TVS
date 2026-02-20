@@ -26,7 +26,8 @@ const admissionValidator = (data) => {
     permanentPin: Joi.string().pattern(/^[0-9]{6}$/),
     permanentState: Joi.string(),
     admissionClass: Joi.string().required(),
-    academicYear: Joi.string().required()
+    academicYear: Joi.string().required(),
+    paymentId: Joi.string()
   });
 
   return schema.validate(data, { abortEarly: false });

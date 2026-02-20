@@ -4,6 +4,7 @@ const { paymentValidator, paymentVerificationValidator } = require('../validator
 const { CreateSdkOrderRequest, StandardCheckoutPayRequest, MetaInfo } = require('phonepe-pg-sdk-node');
 const { randomUUID } = require('crypto');
 const logger = require('../config/logger');
+const { sendPaymentReceipt, sendAdmissionConfirmation } = require('../utils/emailService');
 
 class PaymentController {
   static async createOrder(req, res) {
@@ -137,32 +138,74 @@ class PaymentController {
       }
 
       const client = getPhonePeClient();
-      const orderIdToCheck = phonepeOrderId || merchantOrderId;
+      
+      let orderIdToCheck = merchantOrderId;
+      
+      // If the ID looks like a PhonePe Order ID (OMO_xxx), we need to look up the actual merchantOrderId
+      if (orderIdToCheck && orderIdToCheck.startsWith('OMO')) {
+        console.log('Received PhonePe Order ID, looking up payment record...');
+        const payment = await Payment.findByPhonepeOrderId(orderIdToCheck);
+        if (payment) {
+          // razorpay_order_id stores the actual merchantOrderId (ORDER_xxx)
+          orderIdToCheck = payment.razorpay_order_id || payment.phonepe_order_id;
+          console.log('Found actual merchant order ID:', orderIdToCheck);
+        } else {
+          console.log('Payment record not found for:', orderIdToCheck);
+        }
+      }
+      
+      // Also handle if phonepeOrderId is provided separately
+      if (!orderIdToCheck && phonepeOrderId) {
+        const payment = await Payment.findByPhonepeOrderId(phonepeOrderId);
+        if (payment) {
+          orderIdToCheck = payment.razorpay_order_id || payment.phonepe_order_id;
+          console.log('Found merchant order ID from phonepeOrderId:', orderIdToCheck);
+        }
+      }
 
       console.log('Checking order status for:', orderIdToCheck);
       
       const response = await client.getOrderStatus(orderIdToCheck, false);
 
+      console.log('Full PhonePe response:', JSON.stringify(response, null, 2));
       console.log('Order status response:');
       console.log('- orderId:', response.orderId);
       console.log('- state:', response.state);
       console.log('- amount:', response.amount);
-      console.log('- paymentDetails:', response.paymentDetails?.length || 0);
+      console.log('- response code:', response.code);
+      console.log('- response message:', response.message);
+      console.log('- all keys:', Object.keys(response));
+      console.log('- response stringify:', JSON.stringify(response));
 
-      const state = response.state;
+      // Try different response formats based on PhonePe API
+      // The new PhonePe API returns different structure
+      const state = response.state || response.orderState || response.status || response.orderStatus;
+      const code = response.code || response.responseCode;
+      const responseMessage = response.message || response.responseMessage;
+      
+      console.log('Parsed state:', state);
+      console.log('Parsed code:', code);
+      console.log('Parsed message:', responseMessage);
+
       let paymentStatus = 'pending';
       let transactionId = null;
       let paymentMode = null;
 
-      if (state === 'COMPLETED') {
+      // Check for completed payment - various possible values
+      if (state === 'COMPLETED' || state === 'PAID' || state === 'Success' || 
+          code === 'SUCCESS' || code === '0' || 
+          responseMessage === 'Success' || responseMessage === 'PAYMENT_SUCCESS') {
         paymentStatus = 'completed';
-        if (response.paymentDetails && response.paymentDetails.length > 0) {
-          const latestPayment = response.paymentDetails[0];
-          transactionId = latestPayment.transactionId;
-          paymentMode = latestPayment.paymentMode;
-        }
-      } else if (state === 'FAILED') {
+        transactionId = response.transactionId || response.orderId || phonepeOrderId;
+        paymentMode = response.paymentMode || 'phonepe';
+        console.log('Payment marked as COMPLETED');
+      } else if (state === 'FAILED' || state === 'FAILED' || 
+                 code === 'FAILED' || code === '1' ||
+                 responseMessage === 'Failed' || responseMessage === 'PAYMENT_FAILED') {
         paymentStatus = 'failed';
+        console.log('Payment marked as FAILED');
+      } else {
+        console.log('Payment still PENDING, state:', state, 'code:', code, 'message:', responseMessage);
       }
 
       const payment = await Payment.updateByOrderId(orderIdToCheck, {
@@ -174,6 +217,25 @@ class PaymentController {
 
       console.log('Payment updated in DB:', paymentStatus);
       logger.info(`PhonePe payment verified: ${orderIdToCheck}, State: ${state}`);
+
+      // Send payment receipt email if payment is completed
+      if (paymentStatus === 'completed' && payment) {
+        try {
+          await sendPaymentReceipt(
+            payment.email || payment.parent_email,
+            payment.student_name,
+            payment.amount,
+            transactionId,
+            payment.fee_type,
+            payment.class,
+            payment.academic_year,
+            payment.created_at
+          );
+          logger.info(`Payment receipt email sent to: ${payment.email || payment.parent_email}`);
+        } catch (emailErr) {
+          logger.error('Error sending payment receipt email:', emailErr);
+        }
+      }
 
       res.status(200).json({
         success: true,
@@ -276,6 +338,98 @@ class PaymentController {
     }
   }
 
+  // New endpoint to check payment status from DB by payment ID
+  static async checkPaymentStatus(req, res) {
+    try {
+      const { id } = req.params;
+      const payment = await Payment.findById(id);
+
+      if (!payment) {
+        return res.status(404).json({
+          success: false,
+          message: 'Payment not found'
+        });
+      }
+
+      console.log('Payment status check for ID', id, ':', payment.status);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          id: payment.id,
+          status: payment.status,
+          phonepe_order_id: payment.phonepe_order_id,
+          razorpay_order_id: payment.razorpay_order_id,
+          transaction_id: payment.transaction_id,
+          amount: payment.amount,
+          student_name: payment.student_name,
+          fee_type: payment.fee_type
+        }
+      });
+    } catch (error) {
+      logger.error('Check payment status error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to check payment status'
+      });
+    }
+  }
+
+  // Check payment status by PhonePe order ID
+  static async checkPaymentStatusByPhonepeOrder(req, res) {
+    try {
+      const { phonepeOrderId } = req.query;
+      
+      console.log('=== checkPaymentStatusByPhonepeOrder called ===');
+      console.log('phonepeOrderId:', phonepeOrderId);
+      console.log('Full query:', req.query);
+      console.log('Full URL:', req.originalUrl);
+      
+      if (!phonepeOrderId) {
+        return res.status(400).json({
+          success: false,
+          message: 'PhonePe order ID is required'
+        });
+      }
+      
+      const payment = await Payment.findByPhonepeOrderId(phonepeOrderId);
+      
+      console.log('Found payment:', payment);
+
+      if (!payment) {
+        return res.status(404).json({
+          success: false,
+          message: 'Payment not found'
+        });
+      }
+
+      console.log('Payment status check for PhonePe order', phonepeOrderId, ':', payment.status);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          id: payment.id,
+          status: payment.status,
+          phonepe_order_id: payment.phonepe_order_id,
+          razorpay_order_id: payment.razorpay_order_id,
+          transaction_id: payment.transaction_id,
+          amount: payment.amount,
+          student_name: payment.student_name,
+          parent_email: payment.parent_email,
+          class: payment.class,
+          academic_year: payment.academic_year,
+          fee_type: payment.fee_type
+        }
+      });
+    } catch (error) {
+      logger.error('Check payment status error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to check payment status'
+      });
+    }
+  }
+
   static async getPaymentStats(req, res) {
     try {
       const stats = await Payment.getPaymentStats();
@@ -367,6 +521,73 @@ class PaymentController {
     }
   }
 
+  // Verify OTP for receipt access (for non-logged-in users)
+  static async verifyReceiptAccess(req, res) {
+    try {
+      const { id } = req.params;
+      const { email, phone, otp } = req.body;
+
+      if (!email && !phone) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email or phone is required'
+        });
+      }
+
+      if (!otp) {
+        return res.status(400).json({
+          success: false,
+          message: 'OTP is required'
+        });
+      }
+
+      // Find payment first
+      const payment = await Payment.findById(id);
+      if (!payment) {
+        return res.status(404).json({
+          success: false,
+          message: 'Payment not found'
+        });
+      }
+
+      // Verify OTP
+      const OTP = require('../models/OTP');
+      const result = await OTP.verify(email, phone, otp, 'receipt');
+
+      if (!result.valid) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid or expired OTP'
+        });
+      }
+
+      // Generate access token
+      const jwt = require('jsonwebtoken');
+      const accessToken = generateToken(
+        { receiptAccess: true, paymentId: id, email, phone },
+        '1h'
+      );
+
+      logger.info(`Receipt access verified for payment ${id}`);
+
+      res.status(200).json({
+        success: true,
+        message: 'Access verified',
+        data: {
+          accessToken,
+          paymentId: id
+        }
+      });
+
+    } catch (error) {
+      logger.error('Verify receipt access error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to verify access'
+      });
+    }
+  }
+
   static async generateReceipt(req, res) {
     try {
       const { id } = req.params;
@@ -407,9 +628,23 @@ class PaymentController {
     .status.completed { background: #d4edda; color: #155724; }
     .status.failed { background: #f8d7da; color: #721c24; }
     .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 12px; }
-    .print-btn { display: block; margin: 20px auto; padding: 12px 30px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; }
+    .print-btn { 
+      display: block; 
+      margin: 20px auto; 
+      padding: 12px 30px; 
+      background: #667eea; 
+      color: white; 
+      border: none; 
+      border-radius: 5px; 
+      cursor: pointer; 
+      font-size: 14px;
+      text-decoration: none;
+      text-align: center;
+    }
     .print-btn:hover { background: #5568d3; }
-    @media print { body { padding: 0; } .print-btn { display: none; } }
+    .print-hint { margin-top: 20px; color: #666; font-size: 13px; text-align: center; }
+    .print-btn:hover { background: #5568d3; }
+    @media print { body { padding: 0; } .print-btn, .print-hint { display: none; } }
   </style>
 </head>
 <body>
@@ -486,7 +721,7 @@ class PaymentController {
     <div class="footer">
       <p>This is a computer-generated receipt. No signature required.</p>
       <p>Generated on: ${new Date().toLocaleString('en-IN')}</p>
-      <button class="print-btn" onclick="window.print()">Print Receipt</button>
+      <p class="print-hint">To print: Press <strong>Ctrl+P</strong> (Windows) or <strong>Cmd+P</strong> (Mac)</p>
     </div>
   </div>
 </body>
@@ -512,13 +747,12 @@ class PaymentController {
       if (paymentId) {
         payment = await Payment.findById(paymentId);
       } else if (transactionId) {
-        const { phonepeOrderId, razorpayOrderId } = req.query;
-        if (phonepeOrderId) {
-          const result = await db.query('SELECT * FROM payments WHERE phonepe_order_id = $1', [phonepeOrderId]);
-          payment = result.rows[0];
-        } else if (razorpayOrderId) {
-          payment = await Payment.findByOrderId(razorpayOrderId);
-        }
+        // Look up payment by transaction ID (can be phonepe_order_id or razorpay_order_id)
+        const result = await db.query(
+          'SELECT * FROM payments WHERE phonepe_order_id = $1 OR razorpay_order_id = $1',
+          [transactionId]
+        );
+        payment = result.rows[0];
       }
 
       const receiptNo = payment ? `TVPS/P/${String(payment.id).padStart(6, '0')}` : `TVPS/P/${Date.now()}`;
@@ -556,9 +790,23 @@ class PaymentController {
     .status.completed { background: #d4edda; color: #155724; }
     .status.failed { background: #f8d7da; color: #721c24; }
     .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 12px; }
-    .print-btn { display: block; margin: 20px auto; padding: 12px 30px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; }
+    .print-btn { 
+      display: block; 
+      margin: 20px auto; 
+      padding: 12px 30px; 
+      background: #667eea; 
+      color: white; 
+      border: none; 
+      border-radius: 5px; 
+      cursor: pointer; 
+      font-size: 14px;
+      text-decoration: none;
+      text-align: center;
+    }
     .print-btn:hover { background: #5568d3; }
-    @media print { body { padding: 0; } .print-btn { display: none; } }
+    .print-hint { margin-top: 20px; color: #666; font-size: 13px; text-align: center; }
+    .print-btn:hover { background: #5568d3; }
+    @media print { body { padding: 0; } .print-btn, .print-hint { display: none; } }
   </style>
 </head>
 <body>
@@ -637,7 +885,7 @@ class PaymentController {
     <div class="footer">
       <p>This is a computer-generated receipt. No signature required.</p>
       <p>Generated on: ${new Date().toLocaleString('en-IN')}</p>
-      <button class="print-btn" onclick="window.print()">Print Receipt</button>
+      <p class="print-hint">To print: Press <strong>Ctrl+P</strong> (Windows) or <strong>Cmd+P</strong> (Mac)</p>
     </div>
   </div>
 </body>

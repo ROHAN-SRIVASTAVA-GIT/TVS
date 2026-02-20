@@ -15,6 +15,10 @@ const ProtectedRoute = ({ children, requiredRole = null }) => {
   }
 
   if (requiredRole && user?.role !== requiredRole) {
+    // Allow admin to access admin routes
+    if (user?.role === 'admin') {
+      return children;
+    }
     return <Navigate to="/" replace />;
   }
 

@@ -31,6 +31,7 @@ const upload = multer({
 router.post('/submit', auth, sanitize, upload.single('photo'), AdmissionController.submitAdmission);
 router.get('/my-admissions', auth, AdmissionController.getMyAdmissions);
 router.get('/lookup', AdmissionController.getAdmissionByEmailOrPhone);
+router.get('/by-payment', AdmissionController.getAdmissionByPaymentId);
 router.get('/:id', auth, AdmissionController.getAdmissionById);
 router.put('/:id', auth, sanitize, AdmissionController.updateAdmission);
 

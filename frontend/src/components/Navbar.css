@@ -98,11 +98,17 @@
 
 .logout-btn {
   color: #ff6b6b !important;
+  background: #ff6b6b;
+  color: white !important;
+  padding: 8px 20px;
+  border-radius: 20px;
+  font-weight: 600;
+  margin-left: 10px;
 }
 
 .logout-btn:hover {
-  background: rgba(255, 107, 107, 0.15) !important;
-  color: #ff6b6b !important;
+  background: #ff5252 !important;
+  color: white !important;
 }
 
 .menu-icon {

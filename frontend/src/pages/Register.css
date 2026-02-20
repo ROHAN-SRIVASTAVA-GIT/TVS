@@ -91,6 +91,112 @@
   cursor: not-allowed;
 }
 
+.otp-section {
+  text-align: center;
+}
+
+.otp-info {
+  margin-bottom: 20px;
+}
+
+.otp-info p {
+  color: #666;
+  margin: 5px 0;
+}
+
+.otp-email {
+  color: #667eea !important;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.otp-input {
+  width: 100%;
+  padding: 14px;
+  font-size: 1.3rem;
+  text-align: center;
+  letter-spacing: 8px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  margin: 15px 0;
+  transition: border-color 0.3s ease;
+}
+
+.otp-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.verify-btn {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-bottom: 12px;
+}
+
+.verify-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(40, 167, 69, 0.3);
+}
+
+.verify-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.resend-btn {
+  background: none;
+  border: none;
+  color: #667eea;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 10px;
+  margin: 5px 0;
+}
+
+.resend-btn:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.resend-btn:disabled {
+  color: #999;
+  cursor: not-allowed;
+}
+
+.back-btn {
+  background: none;
+  border: 2px solid #e0e0e0;
+  color: #666;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-top: 15px;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.back-btn:hover {
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.success-message {
+  background-color: #d4edda;
+  color: #155724;
+  padding: 12px;
+  border-radius: 5px;
+  margin-bottom: 20px;
+  border-left: 4px solid #28a745;
+  font-size: 0.9rem;
+}
+
 .error-message {
   background-color: #ffebee;
   color: #c62828;
@@ -116,6 +222,23 @@
 }
 
 .login-text a:hover {
+  text-decoration: underline;
+}
+
+.login-link {
+  text-align: center;
+  color: #666;
+  margin-top: 20px;
+  font-size: 0.9rem;
+}
+
+.login-link a {
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.login-link a:hover {
   text-decoration: underline;
 }
 

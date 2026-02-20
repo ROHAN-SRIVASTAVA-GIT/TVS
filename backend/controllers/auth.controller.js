@@ -1,24 +1,210 @@
 const User = require('../models/User');
+const OTP = require('../models/OTP');
 const { db } = require('../config/db');
-const { hashPassword, comparePasswords, generateToken, generateRefreshToken, isValidEmail } = require('../utils/helpers');
+const { hashPassword, comparePasswords, generateToken, generateRefreshToken } = require('../utils/helpers');
 const { registerValidator, loginValidator } = require('../validators/auth.validator');
 const { sendWelcomeEmail } = require('../utils/emailService');
+const { sendOTPSMS } = require('../utils/smsService');
+const jwt = require('jsonwebtoken');
 const logger = require('../config/logger');
 
 class AuthController {
-  static async register(req, res) {
+  static async sendOTP(req, res) {
     try {
-      const { error, value } = registerValidator(req.body);
-      
-      if (error) {
+      const { email, phone, purpose = 'verification' } = req.body;
+
+      let verifyType = '';
+      if (purpose === 'registration') verifyType = 'User Registration';
+      else if (purpose === 'login') verifyType = 'Login';
+      else if (purpose === 'receipt') verifyType = 'Receipt Access';
+      else if (purpose === 'payment') verifyType = 'Payment Verification';
+      else verifyType = 'Verification';
+
+      if (!email && !phone) {
         return res.status(400).json({
           success: false,
-          message: 'Validation failed',
-          errors: error.details.map(e => e.message)
+          message: 'Email or phone is required'
         });
       }
 
-      const existingUser = await User.findByEmail(value.email);
+      const recentAttempts = await OTP.getAttemptCount(email, phone, purpose, 30);
+      if (recentAttempts >= 5) {
+        return res.status(429).json({
+          success: false,
+          message: 'Too many OTP requests. Please try again after 30 minutes'
+        });
+      }
+
+      const recentOTP = await OTP.getLatest(email, phone, purpose);
+      if (recentOTP) {
+        const timeSince = (Date.now() - new Date(recentOTP.created_at).getTime()) / 1000;
+        if (timeSince < 60) {
+          return res.status(429).json({
+            success: false,
+            message: 'OTP already sent. Please wait 60 seconds.',
+            retryAfter: 60 - Math.floor(timeSince)
+          });
+        }
+      }
+
+      const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const ipAddress = req.ip || req.connection?.remoteAddress;
+
+      await OTP.create({
+        email,
+        phone,
+        otpCode,
+        purpose,
+        expiresInMinutes: 10,
+        ipAddress
+      });
+
+      if (email) {
+        logger.info(`[OTP] Preparing to send email to: ${email}, purpose: ${purpose}`);
+        const emailService = require('../utils/emailService');
+        const result = await emailService.sendEmail(
+          email,
+          `🔐 OTP for ${verifyType} - Top View Public School`,
+          getOTPEamilTemplate(otpCode, verifyType)
+        );
+        logger.info(`[OTP] Email send result for ${email}: ${result}`);
+      }
+
+      if (phone) {
+        logger.info(`[OTP] Preparing to send SMS to: ${phone}, purpose: ${purpose}`);
+        const smsResult = await sendOTPSMS(phone, otpCode);
+        logger.info(`[OTP] SMS send result for ${phone}: ${smsResult}`);
+      }
+
+      logger.info(`[OTP] OTP sent successfully for ${purpose}: ${email || phone}`);
+
+      res.status(200).json({
+        success: true,
+        message: 'OTP sent successfully',
+        data: {
+          emailSent: !!email,
+          phoneSent: !!phone,
+          expiresIn: 600,
+          purpose
+        }
+      });
+
+    } catch (error) {
+      logger.error('Send OTP error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to send OTP'
+      });
+    }
+  }
+
+  static async verifyOTP(req, res) {
+    try {
+      const { email, phone, otp, purpose = 'verification' } = req.body;
+
+      if (!otp) {
+        return res.status(400).json({
+          success: false,
+          message: 'OTP is required'
+        });
+      }
+
+      if (!email && !phone) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email or phone is required'
+        });
+      }
+
+      const result = await OTP.verify(email, phone, otp, purpose);
+
+      if (!result.valid) {
+        return res.status(400).json({
+          success: false,
+          message: result.message || 'Invalid or expired OTP'
+        });
+      }
+
+      const verificationToken = generateToken(
+        { verified: true, purpose, email, phone, timestamp: Date.now() },
+        '1h'
+      );
+
+      logger.info(`OTP verified for ${purpose}: ${email || phone}`);
+
+      res.status(200).json({
+        success: true,
+        message: 'OTP verified successfully',
+        data: {
+          verified: true,
+          purpose,
+          verificationToken
+        }
+      });
+
+    } catch (error) {
+      logger.error('Verify OTP error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to verify OTP'
+      });
+    }
+  }
+
+  static async register(req, res) {
+    try {
+      const { email, phone, firstName, lastName, password, role = 'parent', verificationToken } = req.body;
+
+      if (!email || !firstName || !lastName || !password) {
+        return res.status(400).json({
+          success: false,
+          message: 'All fields are required'
+        });
+      }
+
+      if (!verificationToken) {
+        return res.status(400).json({
+          success: false,
+          message: 'OTP verification required. Please verify your email first.',
+          requiresVerification: true
+        });
+      }
+
+      let decoded;
+      try {
+        decoded = jwt.verify(verificationToken, process.env.JWT_SECRET || 'your-secret-key');
+      } catch (e) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid or expired verification. Please try again.',
+          requiresVerification: true
+        });
+      }
+
+      if (!decoded.verified || decoded.purpose !== 'registration') {
+        return res.status(400).json({
+          success: false,
+          message: 'Please complete OTP verification first',
+          requiresVerification: true
+        });
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid email format'
+        });
+      }
+
+      if (password.length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: 'Password must be at least 6 characters'
+        });
+      }
+
+      const existingUser = await User.findByEmail(email);
       if (existingUser) {
         return res.status(409).json({
           success: false,
@@ -26,15 +212,15 @@ class AuthController {
         });
       }
 
-      const hashedPassword = await hashPassword(value.password);
+      const hashedPassword = await hashPassword(password);
       
       const user = await User.create({
-        email: value.email,
+        email,
         password: hashedPassword,
-        firstName: value.firstName,
-        lastName: value.lastName,
-        phone: value.phone,
-        role: value.role
+        firstName,
+        lastName,
+        phone,
+        role
       });
 
       await sendWelcomeEmail(user.email, user.first_name);
@@ -42,11 +228,11 @@ class AuthController {
       const token = generateToken({ id: user.id, email: user.email, role: user.role });
       const refreshToken = generateRefreshToken({ id: user.id });
 
-      logger.info(`User registered: ${user.email}`);
+      logger.info(`User registered with OTP verification: ${user.email}`);
 
       res.status(201).json({
         success: true,
-        message: 'Registration successful',
+        message: 'Registration completed successfully!',
         data: {
           user: {
             id: user.id,
@@ -66,25 +252,68 @@ class AuthController {
       logger.error('Registration error:', error);
       res.status(500).json({
         success: false,
-        message: 'Registration failed',
-        error: error.message
+        message: 'Registration failed'
       });
     }
   }
 
   static async login(req, res) {
     try {
-      const { error, value } = loginValidator(req.body);
-      
-      if (error) {
+      const { email, password, verificationToken, useOTP = false } = req.body;
+
+      if (!email) {
         return res.status(400).json({
           success: false,
-          message: 'Validation failed',
-          errors: error.details.map(e => e.message)
+          message: 'Email is required'
         });
       }
 
-      const user = await User.findByEmail(value.email);
+      if (useOTP) {
+        if (!verificationToken) {
+          return res.status(400).json({
+            success: false,
+            message: 'OTP verification required',
+            requiresVerification: true
+          });
+        }
+
+        let decoded;
+        try {
+          decoded = jwt.verify(verificationToken, process.env.JWT_SECRET || 'your-secret-key');
+        } catch (e) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid verification. Please try again.',
+            requiresVerification: true
+          });
+        }
+
+        if (!decoded.verified || decoded.purpose !== 'login') {
+          return res.status(400).json({
+            success: false,
+            message: 'Please complete OTP verification first',
+            requiresVerification: true
+          });
+        }
+      } else {
+        if (!password) {
+          return res.status(400).json({
+            success: false,
+            message: 'Password is required'
+          });
+        }
+
+        const { error, value } = loginValidator(req.body);
+        if (error) {
+          return res.status(400).json({
+            success: false,
+            message: 'Validation failed',
+            errors: error.details.map(e => e.message)
+          });
+        }
+      }
+
+      const user = await User.findByEmail(email);
       if (!user) {
         return res.status(401).json({
           success: false,
@@ -92,18 +321,20 @@ class AuthController {
         });
       }
 
-      const passwordMatch = await comparePasswords(value.password, user.password);
-      if (!passwordMatch) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid credentials'
-        });
+      if (!useOTP) {
+        const passwordMatch = await comparePasswords(password, user.password);
+        if (!passwordMatch) {
+          return res.status(401).json({
+            success: false,
+            message: 'Invalid credentials'
+          });
+        }
       }
 
       const token = generateToken({ id: user.id, email: user.email, role: user.role });
       const refreshToken = generateRefreshToken({ id: user.id });
 
-      logger.info(`User logged in: ${user.email}`);
+      logger.info(`User logged in: ${user.email} (${useOTP ? 'OTP' : 'Password'})`);
 
       res.status(200).json({
         success: true,
@@ -127,8 +358,7 @@ class AuthController {
       logger.error('Login error:', error);
       res.status(500).json({
         success: false,
-        message: 'Login failed',
-        error: error.message
+        message: 'Login failed'
       });
     }
   }
@@ -264,5 +494,68 @@ class AuthController {
     }
   }
 }
+
+const getOTPEamilTemplate = (otp, purpose) => {
+  const schoolName = 'Top View Public School';
+  const year = new Date().getFullYear();
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OTP Verification - ${schoolName}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f7fa; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .email-wrapper { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 40px 30px; text-align: center; }
+        .school-name { color: white; font-size: 24px; font-weight: 700; }
+        .tagline { color: #ffd700; font-size: 14px; margin-top: 5px; }
+        .content { padding: 40px 30px; }
+        .otp-box { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 25px; text-align: center; margin: 30px 0; }
+        .otp-label { color: white; font-size: 14px; margin-bottom: 10px; text-transform: uppercase; }
+        .otp-code { color: white; font-size: 36px; font-weight: 700; letter-spacing: 8px; font-family: monospace; }
+        .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; border-radius: 5px; margin: 20px 0; font-size: 13px; }
+        .footer { background: #1a1a2e; padding: 25px 30px; text-align: center; }
+        .footer-text { color: #aaa; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="email-wrapper">
+            <div class="header">
+                <div class="school-name">${schoolName}</div>
+                <div class="tagline">Excellence in Education</div>
+            </div>
+            <div class="content">
+                <p style="margin-bottom: 20px;">Dear User,</p>
+                <p>Greetings from <strong>${schoolName}</strong>!</p>
+                <p style="margin: 20px 0;">Your One-Time Password (OTP) for <strong>${purpose}</strong> is:</p>
+                <div class="otp-box">
+                    <div class="otp-label">Your OTP</div>
+                    <div class="otp-code">${otp}</div>
+                </div>
+                <p style="margin: 20px 0; color: #666;">This OTP is valid for 10 minutes only.</p>
+                <div class="warning">
+                    <strong>Security Notice:</strong>
+                    <ul style="margin-top: 8px; padding-left: 20px;">
+                        <li>Never share your OTP with anyone</li>
+                        <li>Our staff will NEVER ask for your OTP</li>
+                        <li>If you didn't request this, please ignore this email</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer">
+                <p class="footer-text">© ${year} ${schoolName}. All rights reserved.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+  `;
+};
 
 module.exports = AuthController;

@@ -8,9 +8,16 @@ class Student {
         CREATE TABLE IF NOT EXISTS students (
           id SERIAL PRIMARY KEY,
           user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-          roll_number VARCHAR(50) UNIQUE,
-          class VARCHAR(50) NOT NULL,
+          name VARCHAR(255),
+          admission_number VARCHAR(100) UNIQUE,
+          roll_number VARCHAR(50),
+          class_name VARCHAR(50),
           section VARCHAR(10),
+          father_name VARCHAR(255),
+          mother_name VARCHAR(255),
+          phone VARCHAR(20),
+          email VARCHAR(255),
+          address TEXT,
           admission_date DATE,
           date_of_birth DATE,
           gender VARCHAR(20),
@@ -25,8 +32,19 @@ class Student {
       `);
       
       await db.query(`CREATE INDEX IF NOT EXISTS idx_students_user_id ON students(user_id)`);
-      await db.query(`CREATE INDEX IF NOT EXISTS idx_students_class ON students(class)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_students_class ON students(class_name)`);
       await db.query(`CREATE INDEX IF NOT EXISTS idx_students_roll_number ON students(roll_number)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_students_admission ON students(admission_number)`);
+      
+      // Add missing columns
+      await db.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS name VARCHAR(255)`).catch(() => {});
+      await db.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS admission_number VARCHAR(100)`).catch(() => {});
+      await db.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS class_name VARCHAR(50)`).catch(() => {});
+      await db.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS father_name VARCHAR(255)`).catch(() => {});
+      await db.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS mother_name VARCHAR(255)`).catch(() => {});
+      await db.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS phone VARCHAR(20)`).catch(() => {});
+      await db.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS email VARCHAR(255)`).catch(() => {});
+      await db.query(`ALTER TABLE students ADD COLUMN IF NOT EXISTS address TEXT`).catch(() => {});
       
       logger.info('Students table created successfully');
     } catch (error) {

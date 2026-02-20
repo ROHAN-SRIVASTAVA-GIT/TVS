@@ -197,6 +197,18 @@ class Payment {
     }
   }
 
+  static async findByPhonepeOrderId(phonepeOrderId) {
+    const query = 'SELECT * FROM payments WHERE phonepe_order_id = $1 OR razorpay_order_id = $1';
+    
+    try {
+      const result = await db.query(query, [phonepeOrderId]);
+      return result.rows[0] || null;
+    } catch (error) {
+      logger.error('Error finding payment by PhonePe order ID:', error);
+      throw error;
+    }
+  }
+
   static async findById(id) {
     const query = 'SELECT * FROM payments WHERE id = $1';
     

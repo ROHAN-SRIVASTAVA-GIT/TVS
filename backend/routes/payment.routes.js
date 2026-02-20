@@ -35,8 +35,13 @@ router.post('/upload-proof', auth, upload.single('screenshot'), PaymentControlle
 router.get('/history', auth, PaymentController.getPaymentHistory);
 router.get('/history/lookup', PaymentController.getPaymentHistoryByEmailOrPhone);
 router.get('/all', auth, PaymentController.getAllPayments);
-router.get('/receipt-new', PaymentController.generateQuickReceipt);
+router.get('/receipt/new', PaymentController.generateQuickReceipt);
+router.get('/check-phonepe', PaymentController.checkPaymentStatusByPhonepeOrder);
+router.get('/status/:id', PaymentController.checkPaymentStatus);
+
+// Receipt requires OTP verification for non-logged-in users
 router.get('/receipt/:id', PaymentController.generateReceipt);
+router.get('/receipt-verify/:id', PaymentController.verifyReceiptAccess);
 router.get('/:orderId', auth, PaymentController.getPaymentDetails);
 router.get('/stats/all', auth, PaymentController.getPaymentStats);
 

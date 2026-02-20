@@ -26,6 +26,8 @@ const Dashboard = () => {
   const [profilePicLoading, setProfilePicLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [updateLoading, setUpdateLoading] = useState(false);
+  const [selectedAdmission, setSelectedAdmission] = useState(null);
+  const [showAdmissionModal, setShowAdmissionModal] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -35,10 +37,12 @@ const Dashboard = () => {
   });
 
   useEffect(() => {
-    // Load profile picture from localStorage
-    const savedPic = localStorage.getItem('profilePic');
-    if (savedPic) {
-      setProfilePic(savedPic);
+    // Load profile picture from localStorage with user-specific key
+    if (user?.id) {
+      const savedPic = localStorage.getItem(`profilePic_${user.id}`);
+      if (savedPic) {
+        setProfilePic(savedPic);
+      }
     }
     
     // Initialize form data with user info
@@ -66,7 +70,7 @@ const Dashboard = () => {
   };
 
   const uploadProfilePic = async () => {
-    if (!profilePic) return;
+    if (!profilePic || !user?.id) return;
     
     setProfilePicLoading(true);
     setUploadError('');
@@ -74,12 +78,12 @@ const Dashboard = () => {
     try {
       const formData = new FormData();
       formData.append('profilePic', profilePic);
-      formData.append('userId', user?.id);
+      formData.append('userId', user.id);
       
-      // For now, save to localStorage as base64
+      // Save to localStorage with user-specific key
       const reader = new FileReader();
       reader.onloadend = () => {
-        localStorage.setItem('profilePic', reader.result);
+        localStorage.setItem(`profilePic_${user.id}`, reader.result);
         setUploadSuccess('Profile picture updated successfully!');
         setProfilePicLoading(false);
       };
@@ -227,6 +231,11 @@ const Dashboard = () => {
     setPaymentDetails(payment);
   };
 
+  const viewAdmissionDetails = (admission) => {
+    setSelectedAdmission(admission);
+    setShowAdmissionModal(true);
+  };
+
   const proceedWithPayment = async (payment) => {
     setSelectedPayment(payment);
     setShowPaymentPreview(true);
@@ -239,6 +248,61 @@ const Dashboard = () => {
 
     setProcessingPayment(true);
     setPaymentError('');
+    setPaymentSuccess('Checking payment status...');
+
+    // Check if there's an existing payment ID
+    const existingPaymentId = selectedPayment.id;
+    
+    if (existingPaymentId) {
+      try {
+        const statusResponse = await axiosInstance.get(`/payments/status/${existingPaymentId}`);
+        
+        if (statusResponse.success && statusResponse.data.data) {
+          const dbPayment = statusResponse.data.data;
+          
+          if (dbPayment.status === 'completed') {
+            setPaymentSuccess('Payment already completed!');
+            setProcessingPayment(false);
+            return;
+          } else if (dbPayment.status === 'pending') {
+            const orderId = dbPayment.phonepe_order_id || dbPayment.razorpay_order_id || dbPayment.transaction_id;
+            
+            if (orderId) {
+              setPaymentSuccess('Checking payment with provider...');
+              
+              try {
+                const verifyResponse = await axiosInstance.post('/payments/verify', {
+                  merchantOrderId: orderId
+                }, { timeout: 15000 });
+
+                if (verifyResponse.success && verifyResponse.data.paymentStatus === 'completed') {
+                  setPaymentSuccess('Payment already completed!');
+                  setProcessingPayment(false);
+                  fetchDataByEmailPhone();
+                  return;
+                } else if (verifyResponse.success && verifyResponse.data.state === 'CREATED') {
+                  setPaymentSuccess('Opening payment page...');
+                  if (verifyResponse.data.redirectUrl) {
+                    window.open(verifyResponse.data.redirectUrl, '_self');
+                  } else if (verifyResponse.data.paymentUrl) {
+                    window.open(verifyResponse.data.paymentUrl, '_self');
+                  }
+                  setProcessingPayment(false);
+                  return;
+                }
+              } catch (verifyErr) {
+                console.error('Error verifying payment:', verifyErr);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error checking payment status:', err);
+      }
+    }
+
+    // No existing payment or previous payment failed, create new order
+    setPaymentSuccess('Creating payment...');
 
     try {
       const paymentData = {
@@ -258,7 +322,7 @@ const Dashboard = () => {
       if (response.success && response.data.redirectUrl) {
         setProcessingPayment(false);
         setPaymentSuccess('Opening payment page...');
-        window.open(response.data.redirectUrl, '_blank');
+        window.open(response.data.redirectUrl, '_self');
       } else if (response.success && response.data.token) {
         const script = document.createElement('script');
         script.src = 'https://cdn.phonepe.com/v1/checkout.js';
@@ -275,7 +339,7 @@ const Dashboard = () => {
               publicKey: 'M23Y40Q4NT1KS_2602191640',
             }).then((checkout) => {
               checkout.onSuccess((data) => {
-                verifyPayment(response.data.phonepeOrderId);
+                verifyPayment(response.data.orderId);
               }).onError((error) => {
                 setPaymentError('Payment failed. Please try again.');
                 setProcessingPayment(false);
@@ -293,10 +357,10 @@ const Dashboard = () => {
     }
   };
 
-  const verifyPayment = async (phonepeOrderId) => {
+  const verifyPayment = async (merchantOrderId) => {
     try {
       const verifyResponse = await axiosInstance.post('/payments/verify', {
-        phonepeOrderId: phonepeOrderId
+        merchantOrderId: merchantOrderId
       });
 
       if (verifyResponse.success && verifyResponse.data.paymentStatus === 'completed') {
@@ -593,12 +657,25 @@ const Dashboard = () => {
                             <p><strong>Mother Name:</strong> {item.mother_name || 'N/A'}</p>
                             <p><strong>Date of Birth:</strong> {item.date_of_birth ? new Date(item.date_of_birth).toLocaleDateString() : 'N/A'}</p>
                             <p><strong>Gender:</strong> {item.gender || 'N/A'}</p>
+                            <p><strong>Religion:</strong> {item.religion || 'N/A'}</p>
+                            <p><strong>Caste:</strong> {item.caste || 'N/A'}</p>
+                            <p><strong>Aadhaar:</strong> {item.aadhaar_number || 'N/A'}</p>
+                            <p><strong>Blood Group:</strong> {item.blood_group || 'N/A'}</p>
                             <p><strong>Email:</strong> {item.email || 'N/A'}</p>
-                            <p><strong>Phone:</strong> {item.father_contact || item.whatsapp_contact || 'N/A'}</p>
-                            <p><strong>Address:</strong> {item.corresponding_address || 'N/A'}</p>
+                            <p><strong>Father Phone:</strong> {item.father_contact || 'N/A'}</p>
+                            <p><strong>Mother Phone:</strong> {item.mother_contact || 'N/A'}</p>
+                            <p><strong>WhatsApp:</strong> {item.whatsapp_contact || 'N/A'}</p>
+                            <p><strong>Address:</strong> {item.corresponding_address || 'N/A'}, {item.corresponding_district || ''} - {item.corresponding_pin || ''}</p>
+                            <p><strong>Academic Year:</strong> {item.academic_year}</p>
                             <p><strong>Status:</strong> <span className={`status ${item.status}`}>{item.status}</span></p>
                             <p><strong>Applied:</strong> {new Date(item.created_at).toLocaleDateString()}</p>
                           </div>
+                          <button 
+                            className="view-details-btn"
+                            onClick={() => viewAdmissionDetails(item)}
+                          >
+                            View Details
+                          </button>
                         </>
                       ) : (
                         // It's a payment record (completed admission fee)
@@ -606,6 +683,7 @@ const Dashboard = () => {
                           <h3>{item.student_name}</h3>
                           <div className="admission-details">
                             <p><strong>Receipt No:</strong> TVPS/P/{String(item.id).padStart(6, '0')}</p>
+                            <p><strong>Student Name:</strong> {item.student_name}</p>
                             <p><strong>Class:</strong> {item.class}</p>
                             <p><strong>Fee Type:</strong> {(item.fee_type || '').charAt(0).toUpperCase() + (item.fee_type || '').slice(1)} Fee</p>
                             <p><strong>Amount:</strong> ₹{parseFloat(item.amount).toLocaleString('en-IN')}</p>
@@ -615,12 +693,25 @@ const Dashboard = () => {
                             {item.phonepe_order_id && (
                               <p><strong>Transaction ID:</strong> {item.phonepe_order_id}</p>
                             )}
+                            {item.parent_email && (
+                              <p><strong>Email:</strong> {item.parent_email}</p>
+                            )}
+                            {item.parent_phone && (
+                              <p><strong>Phone:</strong> {item.parent_phone}</p>
+                            )}
                           </div>
                           <button 
                             className="download-receipt-btn"
-                            onClick={() => window.open(`${API_URL}/payments/receipt/${item.id}`, '_blank')}
+                            onClick={() => window.open(`${API_URL}/payments/receipt/${item.id}`, '_self')}
                           >
                             Download Receipt
+                          </button>
+                          <button 
+                            className="view-details-btn"
+                            onClick={() => viewAdmissionDetails(item)}
+                            style={{ marginTop: '10px' }}
+                          >
+                            View Details
                           </button>
                         </>
                       )}
@@ -632,6 +723,257 @@ const Dashboard = () => {
                   <p className="empty-title">No Admission Record Found</p>
                   <p className="empty-note">You haven't submitted an admission form yet. Please submit an admission form to see your application status here.</p>
                   <a href="/admission" className="submit-admission-btn">Submit Admission Form</a>
+                </div>
+              )}
+
+              {showAdmissionModal && selectedAdmission && (
+                <div className="admission-modal-overlay" onClick={() => setShowAdmissionModal(false)}>
+                  <div className="admission-modal-content" onClick={(e) => e.stopPropagation()}>
+                    <div className="admission-modal-header">
+                      <h3>Admission Details</h3>
+                      <button className="modal-close-btn" onClick={() => setShowAdmissionModal(false)}>×</button>
+                    </div>
+                    <div className="admission-modal-body">
+                      {selectedAdmission.form_number ? (
+                        <>
+                          <div className="admission-section-title">Student Information</div>
+                          <div className="admission-details-grid">
+                            <div className="detail-item">
+                              <label>Student Name</label>
+                              <p>{selectedAdmission.student_name}</p>
+                            </div>
+                            <div className="detail-item">
+                              <label>Form Number</label>
+                              <p>{selectedAdmission.form_number}</p>
+                            </div>
+                            <div className="detail-item">
+                              <label>Admission Number</label>
+                              <p>{selectedAdmission.admission_number || 'N/A'}</p>
+                            </div>
+                            <div className="detail-item">
+                              <label>Class</label>
+                              <p>{selectedAdmission.admission_class}</p>
+                            </div>
+                            <div className="detail-item">
+                              <label>Date of Birth</label>
+                              <p>{selectedAdmission.date_of_birth ? new Date(selectedAdmission.date_of_birth).toLocaleDateString() : 'N/A'}</p>
+                            </div>
+                            <div className="detail-item">
+                              <label>Gender</label>
+                              <p>{selectedAdmission.gender || 'N/A'}</p>
+                            </div>
+                            <div className="detail-item">
+                              <label>Blood Group</label>
+                              <p>{selectedAdmission.blood_group || 'N/A'}</p>
+                            </div>
+                            <div className="detail-item">
+                              <label>Religion</label>
+                              <p>{selectedAdmission.religion || 'N/A'}</p>
+                            </div>
+                            <div className="detail-item">
+                              <label>Caste</label>
+                              <p>{selectedAdmission.caste || 'N/A'}</p>
+                            </div>
+                            <div className="detail-item">
+                              <label>Aadhaar Number</label>
+                              <p>{selectedAdmission.aadhaar_number || 'N/A'}</p>
+                            </div>
+                          </div>
+
+                          <div className="admission-section-title">Parent Information</div>
+                          <div className="admission-details-grid">
+                            <div className="detail-item">
+                              <label>Father's Name</label>
+                              <p>{selectedAdmission.father_name || 'N/A'}</p>
+                            </div>
+                            <div className="detail-item">
+                              <label>Father's Phone</label>
+                              <p>{selectedAdmission.father_contact || 'N/A'}</p>
+                            </div>
+                            <div className="detail-item">
+                              <label>Father's Occupation</label>
+                              <p>{selectedAdmission.father_occupation || 'N/A'}</p>
+                            </div>
+                            <div className="detail-item">
+                              <label>Mother's Name</label>
+                              <p>{selectedAdmission.mother_name || 'N/A'}</p>
+                            </div>
+                            <div className="detail-item">
+                              <label>Mother's Phone</label>
+                              <p>{selectedAdmission.mother_contact || 'N/A'}</p>
+                            </div>
+                            <div className="detail-item">
+                              <label>Mother's Occupation</label>
+                              <p>{selectedAdmission.mother_occupation || 'N/A'}</p>
+                            </div>
+                            <div className="detail-item">
+                              <label>WhatsApp Number</label>
+                              <p>{selectedAdmission.whatsapp_contact || 'N/A'}</p>
+                            </div>
+                          </div>
+
+                          <div className="admission-section-title">Contact & Address</div>
+                          <div className="admission-details-grid">
+                            <div className="detail-item full-width">
+                              <label>Email</label>
+                              <p>{selectedAdmission.email || 'N/A'}</p>
+                            </div>
+                            <div className="detail-item full-width">
+                              <label>Corresponding Address</label>
+                              <p>{selectedAdmission.corresponding_address || 'N/A'}</p>
+                            </div>
+                            <div className="detail-item">
+                              <label>District</label>
+                              <p>{selectedAdmission.corresponding_district || 'N/A'}</p>
+                            </div>
+                            <div className="detail-item">
+                              <label>State</label>
+                              <p>{selectedAdmission.corresponding_state || 'N/A'}</p>
+                            </div>
+                            <div className="detail-item">
+                              <label>PIN Code</label>
+                              <p>{selectedAdmission.corresponding_pin || 'N/A'}</p>
+                            </div>
+                            {selectedAdmission.permanent_address && (
+                              <div className="detail-item full-width">
+                                <label>Permanent Address</label>
+                                <p>{selectedAdmission.permanent_address}</p>
+                              </div>
+                            )}
+                            {selectedAdmission.permanent_district && (
+                              <div className="detail-item">
+                                <label>Permanent District</label>
+                                <p>{selectedAdmission.permanent_district}</p>
+                              </div>
+                            )}
+                            {selectedAdmission.permanent_state && (
+                              <div className="detail-item">
+                                <label>Permanent State</label>
+                                <p>{selectedAdmission.permanent_state}</p>
+                              </div>
+                            )}
+                            {selectedAdmission.permanent_pin && (
+                              <div className="detail-item">
+                                <label>Permanent PIN</label>
+                                <p>{selectedAdmission.permanent_pin}</p>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="admission-section-title">Academic Information</div>
+                          <div className="admission-details-grid">
+                            <div className="detail-item">
+                              <label>Academic Year</label>
+                              <p>{selectedAdmission.academic_year}</p>
+                            </div>
+                            <div className="detail-item">
+                              <label>Previous School</label>
+                              <p>{selectedAdmission.previous_school || 'N/A'}</p>
+                            </div>
+                            <div className="detail-item">
+                              <label>TC Number</label>
+                              <p>{selectedAdmission.tc_number || 'N/A'}</p>
+                            </div>
+                            <div className="detail-item">
+                              <label>Status</label>
+                              <p><span className={`status ${selectedAdmission.status}`}>{selectedAdmission.status}</span></p>
+                            </div>
+                            <div className="detail-item">
+                              <label>Applied Date</label>
+                              <p>{new Date(selectedAdmission.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="admission-details-grid">
+                            <div className="detail-item">
+                              <label>Receipt Number</label>
+                              <p>TVPS/P/{String(selectedAdmission.id).padStart(6, '0')}</p>
+                            </div>
+                            <div className="detail-item">
+                              <label>Student Name</label>
+                              <p>{selectedAdmission.student_name}</p>
+                            </div>
+                            <div className="detail-item">
+                              <label>Class</label>
+                              <p>{selectedAdmission.class}</p>
+                            </div>
+                            <div className="detail-item">
+                              <label>Fee Type</label>
+                              <p>{(selectedAdmission.fee_type || '').charAt(0).toUpperCase() + (selectedAdmission.fee_type || '').slice(1)} Fee</p>
+                            </div>
+                            <div className="detail-item">
+                              <label>Amount</label>
+                              <p>₹{parseFloat(selectedAdmission.amount).toLocaleString('en-IN')}</p>
+                            </div>
+                            <div className="detail-item">
+                              <label>Academic Year</label>
+                              <p>{selectedAdmission.academic_year}</p>
+                            </div>
+                            <div className="detail-item">
+                              <label>Payment Date</label>
+                              <p>{new Date(selectedAdmission.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                            </div>
+                            <div className="detail-item">
+                              <label>Status</label>
+                              <p><span className="status completed">Completed</span></p>
+                            </div>
+                          </div>
+
+                          <div className="admission-section-title">Parent/Guardian Information</div>
+                          <div className="admission-details-grid">
+                            <div className="detail-item">
+                              <label>Parent Email</label>
+                              <p>{selectedAdmission.parent_email || 'N/A'}</p>
+                            </div>
+                            <div className="detail-item">
+                              <label>Parent Phone</label>
+                              <p>{selectedAdmission.parent_phone || 'N/A'}</p>
+                            </div>
+                          </div>
+
+                          {selectedAdmission.phonepe_order_id && (
+                            <div className="admission-details-grid" style={{ marginTop: '15px' }}>
+                              <div className="detail-item full-width">
+                                <label>Transaction ID</label>
+                                <p>{selectedAdmission.phonepe_order_id}</p>
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="no-form-notice">
+                            <p>📝 <strong>Note:</strong> No admission form submitted yet. To complete your admission process and add parent details, please fill the admission form.</p>
+                            <a href="/admission" className="submit-admission-btn">Submit Admission Form</a>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    <div className="admission-modal-footer">
+                      {selectedAdmission.form_number ? (
+                        <button 
+                          className="download-receipt-btn"
+                          onClick={() => {
+                            if (selectedAdmission.id) {
+                              window.open(`${API_URL}/admission/form/${selectedAdmission.id}`, '_self');
+                            }
+                          }}
+                        >
+                          Download Form
+                        </button>
+                      ) : (
+                        <button 
+                          className="download-receipt-btn"
+                          onClick={() => window.open(`${API_URL}/payments/receipt/${selectedAdmission.id}`, '_self')}
+                        >
+                          Download Receipt
+                        </button>
+                      )}
+                      <button className="modal-cancel-btn" onClick={() => setShowAdmissionModal(false)}>
+                        Close
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -817,7 +1159,7 @@ const Dashboard = () => {
                                   {payment.status === 'completed' && (
                                     <button 
                                       className="receipt-btn"
-                                      onClick={() => window.open(`${API_URL}/payments/receipt/${payment.id}`, '_blank')}
+                                      onClick={() => window.open(`${API_URL}/payments/receipt/${payment.id}`, '_self')}
                                     >
                                       Download Receipt
                                     </button>
@@ -896,7 +1238,7 @@ const Dashboard = () => {
                   <div className="details-actions">
                     <button 
                       className="receipt-btn"
-                      onClick={() => window.open(`${API_URL}/payments/receipt/${paymentDetails.id}`, '_blank')}
+                      onClick={() => window.open(`${API_URL}/payments/receipt/${paymentDetails.id}`, '_self')}
                     >
                       📄 Download PDF
                     </button>

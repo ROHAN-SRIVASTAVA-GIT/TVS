@@ -454,17 +454,17 @@
   border-radius: 12px;
   padding: 30px;
   margin: 30px auto;
-  max-width: 500px;
+  max-width: 700px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   border: 2px solid #28a745;
 }
 
 .payment-receipt-preview h3 {
   text-align: center;
-  color: #1a1a2e;
+  color: #1e3c72;
   margin-bottom: 20px;
-  font-size: 1.5rem;
-  border-bottom: 2px solid #667eea;
+  font-size: 1.4rem;
+  border-bottom: 2px solid #1e3c72;
   padding-bottom: 10px;
 }
 
@@ -477,8 +477,9 @@
 .receipt-row {
   display: flex;
   justify-content: space-between;
-  padding: 10px 0;
+  padding: 8px 0;
   border-bottom: 1px solid #e0e0e0;
+  font-size: 14px;
 }
 
 .receipt-row:last-child {
@@ -488,11 +489,14 @@
 .receipt-row span:first-child {
   color: #666;
   font-weight: 500;
+  flex: 1;
 }
 
 .receipt-row span:last-child {
   color: #1a1a2e;
   font-weight: 600;
+  flex: 1;
+  text-align: right;
 }
 
 .status-completed {
@@ -537,4 +541,136 @@
 
 .btn-print:hover {
   background: #218838;
+}
+
+.polling-indicator {
+  text-align: center;
+  padding: 20px;
+  margin: 20px 0;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.polling-indicator p {
+  margin-top: 15px;
+  color: #666;
+  font-size: 0.95rem;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+ 0% { transform: rotate(0deg); }
+ 100% { transform: rotate(360deg); }
+}
+
+.payment-success-receipt {
+  text-align: center;
+  padding: 30px 20px;
+  background: #d4edda;
+  border-radius: 10px;
+  margin: 20px 0;
+}
+
+.payment-success-receipt .success-icon {
+  width: 60px;
+  height: 60px;
+  background: #28a745;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  margin: 0 auto 15px;
+}
+
+.payment-success-receipt h4 {
+  color: #155724;
+  margin-bottom: 20px;
+  font-size: 1.3rem;
+}
+
+.payment-success-receipt .receipt-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.payment-success-receipt .btn-download-pdf,
+.payment-success-receipt .btn-print {
+  display: block;
+  padding: 12px 20px;
+  background: #667eea;
+  color: white;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.payment-success-receipt .btn-print {
+  background: #28a745;
+}
+
+.payment-success-receipt .success-details {
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  margin: 15px 0;
+  text-align: left;
+}
+
+.payment-success-receipt .success-details p {
+  margin: 8px 0;
+  color: #333;
+}
+
+.go-dashboard-btn {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 15px;
+}
+
+.go-dashboard-btn:hover {
+  background: #5568d3;
+}
+
+.payment-check-manual {
+  text-align: center;
+  padding: 20px;
+  background: #fff3cd;
+  border-radius: 8px;
+  margin: 15px 0;
+}
+
+.payment-check-manual p {
+  margin-bottom: 15px;
+  color: #856404;
+}
+
+.check-status-btn {
+  padding: 12px 25px;
+  background: #ffc107;
+  color: #333;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
 }

@@ -9,7 +9,7 @@ class Gallery {
           id SERIAL PRIMARY KEY,
           title VARCHAR(255) NOT NULL,
           description TEXT,
-          image_url VARCHAR(255) NOT NULL,
+          image_url VARCHAR(255),
           category VARCHAR(100),
           uploaded_by INTEGER REFERENCES users(id),
           featured BOOLEAN DEFAULT false,
@@ -21,6 +21,9 @@ class Gallery {
       
       await db.query(`CREATE INDEX IF NOT EXISTS idx_gallery_category ON gallery(category)`);
       await db.query(`CREATE INDEX IF NOT EXISTS idx_gallery_featured ON gallery(featured)`);
+      
+      // Make image_url nullable if it was NOT NULL
+      await db.query(`ALTER TABLE gallery ALTER COLUMN image_url DROP NOT NULL`).catch(() => {});
       
       logger.info('Gallery table created successfully');
     } catch (error) {

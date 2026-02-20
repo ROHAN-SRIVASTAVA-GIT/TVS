@@ -10,9 +10,12 @@ class Notice {
           title VARCHAR(255) NOT NULL,
           content TEXT NOT NULL,
           category VARCHAR(100),
+          priority VARCHAR(50) DEFAULT 'normal',
+          target_audience VARCHAR(50) DEFAULT 'all',
           created_by INTEGER REFERENCES users(id),
           attachment_url VARCHAR(255),
           is_active BOOLEAN DEFAULT true,
+          status VARCHAR(50) DEFAULT 'active',
           publish_date TIMESTAMP,
           expiry_date TIMESTAMP,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -22,6 +25,11 @@ class Notice {
       
       await db.query(`CREATE INDEX IF NOT EXISTS idx_notices_active ON notices(is_active)`);
       await db.query(`CREATE INDEX IF NOT EXISTS idx_notices_category ON notices(category)`);
+      
+      // Add missing columns if they don't exist
+      await db.query(`ALTER TABLE notices ADD COLUMN IF NOT EXISTS priority VARCHAR(50) DEFAULT 'normal'`).catch(() => {});
+      await db.query(`ALTER TABLE notices ADD COLUMN IF NOT EXISTS target_audience VARCHAR(50) DEFAULT 'all'`).catch(() => {});
+      await db.query(`ALTER TABLE notices ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active'`).catch(() => {});
       
       logger.info('Notices table created successfully');
     } catch (error) {

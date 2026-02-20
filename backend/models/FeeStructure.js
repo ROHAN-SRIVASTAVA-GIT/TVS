@@ -7,7 +7,7 @@ class FeeStructure {
       await db.query(`
         CREATE TABLE IF NOT EXISTS fee_structures (
           id SERIAL PRIMARY KEY,
-          class VARCHAR(50) NOT NULL UNIQUE,
+          class_name VARCHAR(50) NOT NULL,
           tuition_fee DECIMAL(10, 2),
           transport_fee DECIMAL(10, 2),
           uniform_fee DECIMAL(10, 2),
@@ -18,11 +18,15 @@ class FeeStructure {
           academic_year VARCHAR(20),
           is_active BOOLEAN DEFAULT true,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(class_name, academic_year)
         )
       `);
       
-      await db.query(`CREATE INDEX IF NOT EXISTS idx_fee_structures_class ON fee_structures(class)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_fee_structures_class ON fee_structures(class_name)`);
+      
+      // Add missing column
+      await db.query(`ALTER TABLE fee_structures ADD COLUMN IF NOT EXISTS class_name VARCHAR(50)`).catch(() => {});
       
       logger.info('Fee Structures table created successfully');
     } catch (error) {

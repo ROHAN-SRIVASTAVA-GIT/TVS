@@ -17,9 +17,11 @@ import Contact from './pages/Contact';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
+import Admin from './pages/Admin';
 import NoticeBoard from './pages/NoticeBoard';
 import Faculty from './pages/Faculty';
 import NotFound from './pages/NotFound';
+import PaymentCallback from './pages/PaymentCallback';
 
 import './App.css';
 
@@ -40,6 +42,7 @@ function App() {
             <Route path="/contact" element={<Contact />} />
             <Route path="/notices" element={<NoticeBoard />} />
             <Route path="/faculty" element={<Faculty />} />
+            <Route path="/payment-callback" element={<PaymentCallback />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route
@@ -47,6 +50,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <Admin />
                 </ProtectedRoute>
               }
             />

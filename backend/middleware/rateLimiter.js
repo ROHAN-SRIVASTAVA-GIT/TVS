@@ -27,9 +27,17 @@ const apiLimiter = rateLimit({
   message: 'API rate limit exceeded',
 });
 
+const paymentVerifyLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 30,
+  message: 'Payment verification rate limit exceeded, please wait',
+  skipFailedRequests: false,
+});
+
 module.exports = {
   globalLimiter,
   loginLimiter,
   registerLimiter,
   apiLimiter,
+  paymentVerifyLimiter,
 };

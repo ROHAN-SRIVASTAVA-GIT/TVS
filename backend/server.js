@@ -14,12 +14,14 @@ const rateLimiter = require('./middleware/rateLimiter');
 // Route imports
 const authRoutes = require('./routes/auth.routes');
 const admissionRoutes = require('./routes/admission.routes');
+const admissionPaymentRoutes = require('./routes/admissionPayment.routes');
 const feeRoutes = require('./routes/fee.routes');
 const paymentRoutes = require('./routes/payment.routes');
 const galleryRoutes = require('./routes/gallery.routes');
 const noticeRoutes = require('./routes/notice.routes');
 const contactRoutes = require('./routes/contact.routes');
 const adminRoutes = require('./routes/admin.routes');
+const otpRoutes = require('./routes/otp.routes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -28,6 +30,11 @@ const PORT = process.env.PORT || 5000;
 if (!fs.existsSync('uploads')) {
   fs.mkdirSync('uploads', { recursive: true });
   logger.info('Uploads directory created');
+}
+
+if (!fs.existsSync('uploads/gallery')) {
+  fs.mkdirSync('uploads/gallery', { recursive: true });
+  logger.info('Gallery uploads directory created');
 }
 
 // Trust proxy
@@ -55,6 +62,7 @@ app.use(morgan('combined', { stream: logger.stream }));
 // Rate Limiting
 app.use('/api/auth/login', rateLimiter.loginLimiter);
 app.use('/api/auth/register', rateLimiter.registerLimiter);
+app.use('/api/payments/verify', rateLimiter.paymentVerifyLimiter);
 app.use('/api/', rateLimiter.globalLimiter);
 
 // Static Files
@@ -71,6 +79,7 @@ app.get('/health', (req, res) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/admission-payment', admissionPaymentRoutes);
 app.use('/api/admission', admissionRoutes);
 app.use('/api/fees', feeRoutes);
 app.use('/api/payments', paymentRoutes);
@@ -78,6 +87,7 @@ app.use('/api/gallery', galleryRoutes);
 app.use('/api/notices', noticeRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/otp', otpRoutes);
 
 // 404 Handler
 app.use((req, res) => {
@@ -101,6 +111,10 @@ const startServer = async () => {
 
     // Initialize database tables
     await initializeTables();
+
+    // Create admin user if not exists
+    const createAdminUser = require('./scripts/createAdminUser');
+    await createAdminUser();
 
     // Start server
     app.listen(PORT, () => {
@@ -131,15 +145,19 @@ async function initializeTables() {
     const Gallery = require('./models/Gallery');
     const Notice = require('./models/Notice');
     const Contact = require('./models/Contact');
+    const OTP = require('./models/OTP');
+    const AdmissionPayment = require('./models/AdmissionPayment');
 
     await User.createTable();
     await Student.createTable();
     await Admission.createTable();
+    await AdmissionPayment.createTable();
     await FeeStructure.createTable();
     await Payment.createTable();
     await Gallery.createTable();
     await Notice.createTable();
     await Contact.createTable();
+    await OTP.createTable();
 
     logger.info('✓ Database tables initialized');
   } catch (error) {

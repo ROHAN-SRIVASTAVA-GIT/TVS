@@ -164,7 +164,7 @@ const Payment = () => {
 
       if (response.success && response.data.redirectUrl) {
         setLoading(false);
-        window.open(response.data.redirectUrl, '_blank');
+        window.open(response.data.redirectUrl, '_self');
         setSuccess('Payment page opened in new tab. Please complete your payment there.');
       } else if (response.success && response.data.token) {
         const script = document.createElement('script');

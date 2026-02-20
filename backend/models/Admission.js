@@ -37,6 +37,7 @@ class Admission {
           admission_number VARCHAR(100) UNIQUE,
           admission_date DATE,
           photo_url VARCHAR(255),
+          payment_id VARCHAR(255),
           status VARCHAR(50) DEFAULT 'pending',
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -106,6 +107,18 @@ class Admission {
       return result.rows;
     } catch (error) {
       logger.error('Error finding admissions by email/phone:', error);
+      throw error;
+    }
+  }
+
+  static async findByPaymentId(paymentId) {
+    const query = 'SELECT * FROM admissions WHERE payment_id = $1 ORDER BY created_at DESC LIMIT 1';
+    
+    try {
+      const result = await db.query(query, [paymentId]);
+      return result.rows[0] || null;
+    } catch (error) {
+      logger.error('Error finding admission by payment ID:', error);
       throw error;
     }
   }

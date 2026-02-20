@@ -92,10 +92,16 @@
 .logout-btn {
   margin-top: 20px;
   background-color: #ff6b6b !important;
+  color: white !important;
+  padding: 12px 25px;
+  border-radius: 25px;
+  font-weight: 600;
+  font-size: 14px;
 }
 
 .logout-btn:hover {
   background-color: #ff5252 !important;
+  color: white !important;
 }
 
 .dashboard-content {
@@ -1260,4 +1266,205 @@
 .sidebar-phone {
   color: #667eea !important;
   font-weight: 500;
+}
+
+.admission-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.admission-modal-content {
+  background: white;
+  border-radius: 15px;
+  width: 100%;
+  max-width: 800px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.admission-modal-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 20px 25px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.admission-modal-header h3 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-family: 'Cinzel', serif;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 2rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.3s;
+}
+
+.modal-close-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.admission-modal-body {
+  padding: 25px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.admission-section-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #667eea;
+  margin: 20px 0 15px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #667eea;
+}
+
+.admission-section-title:first-child {
+  margin-top: 0;
+}
+
+.admission-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+}
+
+.admission-details-grid .detail-item {
+  background: #f8f9fa;
+  padding: 12px 15px;
+  border-radius: 8px;
+  border-left: 3px solid #667eea;
+}
+
+.admission-details-grid .detail-item.full-width {
+  grid-column: 1 / -1;
+}
+
+.admission-details-grid .detail-item label {
+  display: block;
+  font-size: 0.8rem;
+  color: #666;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.admission-details-grid .detail-item p {
+  margin: 0;
+  color: #333;
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+
+.admission-modal-footer {
+  padding: 20px 25px;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 15px;
+  background: #f8f9fa;
+}
+
+.admission-modal-footer .download-receipt-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 12px 25px;
+  border-radius: 25px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.admission-modal-footer .download-receipt-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+.modal-cancel-btn {
+  background: #e0e0e0;
+  color: #333;
+  border: none;
+  padding: 12px 25px;
+  border-radius: 25px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.modal-cancel-btn:hover {
+  background: #d0d0d0;
+}
+
+.view-details-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.3s, box-shadow 0.3s;
+  margin-top: 15px;
+}
+
+.view-details-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+.no-form-notice {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 20px;
+  text-align: center;
+}
+
+.no-form-notice p {
+  color: #856404;
+  margin-bottom: 15px;
+  font-size: 0.95rem;
+}
+
+.no-form-notice .submit-admission-btn {
+  display: inline-block;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 12px 30px;
+  border-radius: 25px;
+  text-decoration: none;
+  font-weight: 600;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.no-form-notice .submit-admission-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
 }
