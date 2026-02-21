@@ -3,6 +3,17 @@ require('dotenv').config();
 const nodemailer = require('nodemailer');
 const logger = require('../config/logger');
 
+// Initialize Resend if configured
+let resend;
+if (process.env.RESEND_API_KEY) {
+  try {
+    resend = require('resend').Resend;
+    logger.info(`[EmailService] Resend initialized with API key`);
+  } catch (e) {
+    logger.info(`[EmailService] Resend package not found, using SMTP`);
+  }
+}
+
 logger.info(`[EmailService] === INITIALIZING ===`);
 logger.info(`[EmailService] EMAIL_USER: "${process.env.EMAIL_USER}"`);
 logger.info(`[Email_USER present: ${!!process.env.EMAIL_USER}`);
@@ -25,7 +36,11 @@ const emailService = process.env.EMAIL_SERVICE || 'gmail';
 
 logger.info(`[EmailService] Email service: ${emailService}`);
 
-if (emailService === 'sendgrid' && process.env.SENDGRID_API_KEY) {
+if (emailService === 'resend' && process.env.RESEND_API_KEY) {
+  // Resend configuration
+  const resend = require('resend');
+  logger.info(`[EmailService] Using Resend API`);
+} else if (emailService === 'sendgrid' && process.env.SENDGRID_API_KEY) {
   transporter = nodemailer.createTransport({
     host: 'smtp.sendgrid.net',
     port: 587,
@@ -42,23 +57,19 @@ if (emailService === 'sendgrid' && process.env.SENDGRID_API_KEY) {
   logger.info(`[EmailService] Gmail user: ${process.env.EMAIL_USER}`);
   logger.info(`[EmailService] Gmail pass length: ${(process.env.EMAIL_PASS || process.env.EMAIL_PASSWORD || '').length}`);
   
-  // Try direct SMTP with Gmail
   transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 587,
-    secure: false,
+    port: 465,
+    secure: true,
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS
-    },
-    tls: {
-      rejectUnauthorized: false
     },
     connectionTimeout: 30000,
     greetingTimeout: 30000
   });
   
-  logger.info(`[EmailService] Gmail SMTP config: host=smtp.gmail.com, port=587, secure=false`);
+  logger.info(`[EmailService] Gmail SMTP config: host=smtp.gmail.com, port=465, secure=true`);
 }
 
 logger.info(`[EmailService] Using email password: ${(process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS) ? 'YES' : 'NO'}`);
@@ -281,8 +292,26 @@ const sendEmail = async (to, subject, htmlContent) => {
     logger.info(`[EmailService] sendEmail called`);
     logger.info(`[EmailService] To: "${to}"`);
     logger.info(`[EmailService] Subject: "${subject}"`);
-    logger.info(`[EmailService] Transporter configured: ${emailService}`);
+    logger.info(`[EmailService] Email service: ${emailService}`);
     
+    // Use Resend if configured
+    if (emailService === 'resend' && process.env.RESEND_API_KEY && resend) {
+      logger.info(`[EmailService] Sending via Resend API...`);
+      
+      const data = await resend.emails.send({
+        from: `${SCHOOL_NAME} <onboarding@resend.dev>`,
+        to: [to],
+        subject: subject,
+        html: htmlContent
+      });
+      
+      logger.info(`[EmailService] ✓ Email sent via Resend!`);
+      logger.info(`[EmailService] Resend response: ${JSON.stringify(data)}`);
+      logger.info(`[EmailService] ============================================`);
+      return true;
+    }
+    
+    // Use SMTP (Gmail or SendGrid)
     const mailOptions = {
       from: process.env.EMAIL_FROM || `${SCHOOL_NAME} <${process.env.EMAIL_USER}>`,
       to,
@@ -290,7 +319,7 @@ const sendEmail = async (to, subject, htmlContent) => {
       html: htmlContent
     };
 
-    logger.info(`[EmailService] Sending email now...`);
+    logger.info(`[EmailService] Sending via SMTP...`);
     const startTime = Date.now();
     
     const info = await transporter.sendMail(mailOptions);
