@@ -139,8 +139,9 @@ const sendEmail = async (to, subject, htmlContent) => {
     return false;
   }
 };
+
+const baseEmailTemplate = (content) => {
   return `
-<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
