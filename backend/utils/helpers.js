@@ -39,6 +39,8 @@ const verifyToken = (token) => {
   }
 };
 
+const generateUUID = () => uuidv4();
+
 module.exports = {
   hashPassword,
   comparePasswords,
@@ -46,13 +48,4 @@ module.exports = {
   generateRefreshToken,
   verifyToken,
   generateUUID,
-  generateFormNumber,
-  generateAdmissionNumber,
-  generateReceiptNumber,
-  isValidEmail,
-  isValidPhone,
-  isValidAadhaar,
-  formatDate,
-  calculateAge,
-  validatePasswordStrength
 };
