@@ -84,30 +84,47 @@ class OTPController {
       });
 
       // Send OTP via email
+      let emailSent = false;
       if (email) {
-        await sendEmail({
-          to: email,
-          subject: '🔐 Your OTP for Top View Public School',
-          html: getOTPEemailTemplate(otpCode, purpose, email)
-        });
+        try {
+          await sendEmail({
+            to: email,
+            subject: '🔐 Your OTP for Top View Public School',
+            html: getOTPEemailTemplate(otpCode, purpose, email)
+          });
+          emailSent = true;
+        } catch (emailError) {
+          logger.error(`[OTP] Email send failed: ${emailError.message}`);
+          emailSent = false;
+        }
       }
 
       // Send OTP via SMS (if phone provided)
+      let smsSent = false;
       if (phone) {
-        await sendSMS({
-          to: phone,
-          message: `Your OTP for Top View Public School is: ${otpCode}. Valid for ${OTP_EXPIRY_MINUTES} minutes. Do not share this OTP.`
-        });
+        try {
+          await sendSMS({
+            to: phone,
+            message: `Your OTP for Top View Public School is: ${otpCode}. Valid for ${OTP_EXPIRY_MINUTES} minutes. Do not share this OTP.`
+          });
+          smsSent = true;
+        } catch (smsError) {
+          logger.error(`[OTP] SMS send failed: ${smsError.message}`);
+          smsSent = false;
+        }
       }
 
-      logger.info(`OTP sent successfully to ${email || phone} for ${purpose}`);
+      logger.info(`OTP created for ${email || phone}, purpose: ${purpose}, emailSent: ${emailSent}, smsSent: ${smsSent}`);
 
       res.status(200).json({
         success: true,
         message: 'OTP sent successfully',
         data: {
-          emailSent: !!email,
-          phoneSent: !!phone,
+          emailSent,
+          smsSent,
+          purpose,
+          expiresInMinutes: OTP_EXPIRY_MINUTES,
+          phoneSent: smsSent,
           expiresIn: OTP_EXPIRY_MINUTES * 60
         }
       });
