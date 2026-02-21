@@ -6,6 +6,7 @@ import logo from '../assets/logo16k.png';
 import './Navbar.css';
 
 const Navbar = () => {
+  // eslint-disable-next-line no-unused-vars
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = React.useState(false);

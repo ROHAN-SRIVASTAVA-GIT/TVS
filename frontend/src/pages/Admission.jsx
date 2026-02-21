@@ -190,6 +190,7 @@ const Admission = () => {
       // Try to fetch admission data from backend if no localStorage data
       fetchAdmissionData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Clear localStorage on component unmount only (not on state change)
@@ -210,6 +211,7 @@ const Admission = () => {
     if (formData.admissionClass) {
       fetchFeeStructure();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.admissionClass]);
 
   const fetchFeeStructure = async () => {
@@ -278,6 +280,7 @@ const Admission = () => {
     if (step > 1) setStep(step - 1);
   };
 
+  // eslint-disable-next-line no-unused-vars
   const handleProceedToPayment = () => {
     console.log('Proceed to Payment clicked', formData.admissionClass);
     if (!formData.admissionClass) {
