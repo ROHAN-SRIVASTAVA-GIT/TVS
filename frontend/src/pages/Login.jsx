@@ -15,8 +15,10 @@ const Login = () => {
   const [otpLoading, setOtpLoading] = useState(false);
   // eslint-disable-next-line no-unused-vars
   const [verificationToken, setVerificationToken] = useState('');
+  // eslint-disable-next-line no-unused-vars
   const [resendTimer, setResendTimer] = useState(0);
 
+  // eslint-disable-next-line no-unused-vars
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };

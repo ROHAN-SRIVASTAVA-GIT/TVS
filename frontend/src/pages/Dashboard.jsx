@@ -139,12 +139,14 @@ const Dashboard = () => {
     if (activeTab === 'admissions' || activeTab === 'payments') {
       fetchDataByEmailPhone();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   useEffect(() => {
     if (user?.email || user?.phone) {
       fetchDataByEmailPhone();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchDataByEmailPhone = async () => {
@@ -1346,18 +1348,18 @@ const Dashboard = () => {
             <div className="content-section">
               <h2>Important Documents</h2>
               <div className="documents-list">
-                <a href="#" className="document-link">
+                <span className="document-link">
                   <span>📄</span> School Prospectus
-                </a>
-                <a href="#" className="document-link">
+                </span>
+                <span className="document-link">
                   <span>📄</span> Admission Guidelines
-                </a>
-                <a href="#" className="document-link">
+                </span>
+                <span className="document-link">
                   <span>📄</span> Fee Payment Receipt
-                </a>
-                <a href="#" className="document-link">
+                </span>
+                <span className="document-link">
                   <span>📄</span> Student ID Card
-                </a>
+                </span>
               </div>
             </div>
           )}
