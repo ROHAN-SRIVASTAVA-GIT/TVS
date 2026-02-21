@@ -42,10 +42,12 @@ const Admin = () => {
 
   useEffect(() => {
     fetchDashboardStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [period]);
 
   useEffect(() => {
     loadTabData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, pagination.page, filters]);
 
   const fetchDashboardStats = async () => {
@@ -228,7 +230,6 @@ const Admin = () => {
     setActionLoading(true);
     try {
       let endpoint = '';
-      let method = 'post';
       
       switch(activeTab) {
         case 'users':
@@ -305,8 +306,6 @@ const Admin = () => {
     setModalMode('view');
     setShowModal(true);
   };
-
-  const totalPages = Math.ceil(pagination.total / pagination.limit);
 
   if (user?.role !== 'admin') {
     return (
