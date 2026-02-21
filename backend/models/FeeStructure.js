@@ -47,12 +47,20 @@ class FeeStructure {
     }
   }
 
-  static async findByClass(className, academicYear) {
+  static async findByClass(className, academicYear = null) {
     try {
-      const result = await db.query(
-        'SELECT * FROM fee_structures WHERE class_name = $1 AND academic_year = $2 AND is_active = true',
-        [className, academicYear]
-      );
+      let result;
+      if (academicYear) {
+        result = await db.query(
+          'SELECT * FROM fee_structures WHERE class_name = $1 AND academic_year = $2 AND is_active = true',
+          [className, academicYear]
+        );
+      } else {
+        result = await db.query(
+          'SELECT * FROM fee_structures WHERE class_name = $1 AND is_active = true ORDER BY academic_year DESC LIMIT 1',
+          [className]
+        );
+      }
       return result.rows[0];
     } catch (error) {
       logger.error('Error finding fee structure:', error);

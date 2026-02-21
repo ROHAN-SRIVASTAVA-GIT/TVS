@@ -61,7 +61,8 @@ class FeeController {
   static async getFeeByClass(req, res) {
     try {
       const { className } = req.params;
-      const fee = await FeeStructure.findByClass(className);
+      const academicYear = req.query.academicYear || new Date().getFullYear().toString();
+      const fee = await FeeStructure.findByClass(className, academicYear);
 
       if (!fee) {
         return res.status(404).json({
