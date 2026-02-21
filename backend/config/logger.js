@@ -32,18 +32,17 @@ const logger = winston.createLogger({
   ],
 });
 
-if (process.env.NODE_ENV !== 'production') {
-  logger.add(
-    new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.colorize(),
-        winston.format.printf(({ level, message, timestamp }) => {
-          return `${timestamp} [${level}]: ${message}`;
-        })
-      ),
-    })
-  );
-}
+// Always add console transport for both dev and production
+logger.add(
+  new winston.transports.Console({
+    format: winston.format.combine(
+      winston.format.colorize(),
+      winston.format.printf(({ level, message, timestamp }) => {
+        return `${timestamp} [${level}]: ${message}`;
+      })
+    ),
+  })
+);
 
 logger.stream = {
   write: (message) => logger.info(message),
