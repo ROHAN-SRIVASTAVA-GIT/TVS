@@ -52,6 +52,7 @@ const Home = () => {
       setPollingStatus('checking');
       startPaymentPolling(orderIdToCheck, 15);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const features = [
