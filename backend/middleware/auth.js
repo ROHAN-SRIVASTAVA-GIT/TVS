@@ -1,6 +1,8 @@
 const jwt = require('jsonwebtoken');
 const logger = require('../config/logger');
 
+const JWT_SECRET = process.env.JWT_SECRET || 'tvs-default-secret-key-2026';
+
 const auth = async (req, res, next) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
@@ -12,7 +14,7 @@ const auth = async (req, res, next) => {
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
     req.userId = decoded.id;
     req.userRole = decoded.role;

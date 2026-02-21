@@ -2,6 +2,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 
+const JWT_SECRET = process.env.JWT_SECRET || 'tvs-default-secret-key-2026';
+
 const hashPassword = async (password) => {
   try {
     const salt = await bcrypt.genSalt(10);
@@ -20,7 +22,17 @@ const comparePasswords = async (password, hashedPassword) => {
 };
 
 const generateToken = (payload, expiresIn = process.env.JWT_EXPIRE) => {
-  return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn });
+  return jwt.sign(payload, JWT_SECRET, { expiresIn });
+};
+
+const generateRefreshToken = (payload) => {
+  return jwt.sign(payload, process.env.JWT_REFRESH_SECRET || JWT_SECRET, {
+    expiresIn: process.env.JWT_REFRESH_EXPIRE
+  });
+};
+
+const verifyToken = (token) => {
+  return jwt.verify(token, JWT_SECRET);
 };
 
 const generateRefreshToken = (payload) => {
