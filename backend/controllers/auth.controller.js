@@ -410,10 +410,10 @@ class AuthController {
     try {
       const { currentPassword, newPassword } = req.body;
 
-      if (!currentPassword || !newPassword) {
+      if (!newPassword) {
         return res.status(400).json({
           success: false,
-          message: 'Current password and new password are required'
+          message: 'New password is required'
         });
       }
 
@@ -432,6 +432,28 @@ class AuthController {
         });
       }
 
+      // Check if user must change password (temp password from admin)
+      if (user.must_change_password) {
+        // For temp passwords, don't require current password
+        const hashedPassword = await require('bcryptjs').hash(newPassword, 10);
+        await db.query('UPDATE users SET password = $1, must_change_password = false, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [hashedPassword, req.userId]);
+
+        logger.info(`Password changed for user with temp password: ${user.email}`);
+
+        return res.status(200).json({
+          success: true,
+          message: 'Password changed successfully'
+        });
+      }
+
+      // For regular users, require current password
+      if (!currentPassword) {
+        return res.status(400).json({
+          success: false,
+          message: 'Current password is required'
+        });
+      }
+
       const passwordMatch = await comparePasswords(currentPassword, user.password);
       if (!passwordMatch) {
         return res.status(401).json({
@@ -441,7 +463,7 @@ class AuthController {
       }
 
       const hashedPassword = await require('bcryptjs').hash(newPassword, 10);
-      await db.query('UPDATE users SET password = $1, must_change_password = false, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [hashedPassword, req.userId]);
+      await db.query('UPDATE users SET password = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [hashedPassword, req.userId]);
 
       logger.info(`Password changed for user: ${user.email}`);
 

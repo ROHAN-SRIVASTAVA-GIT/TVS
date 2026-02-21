@@ -1372,6 +1372,7 @@ const Dashboard = () => {
                   <strong>⚠️ Required:</strong> You must change your temporary password before continuing.
                 </div>
               )}
+              {user?.mustChangePassword && (
               <div className="security-section">
                 <h3>Change Password</h3>
                 <form onSubmit={async (e) => {
@@ -1432,6 +1433,7 @@ const Dashboard = () => {
                   </button>
                 </form>
               </div>
+              )}
             </div>
           )}
         </div>
