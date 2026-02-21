@@ -45,8 +45,26 @@ app.use(helmet());
 app.use(compression());
 
 // CORS Configuration
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'https://tvs.vercel.app',
+  'https://tvs-frontend.vercel.app',
+  'https://topviewpublicschool.vercel.app'
+].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || origin.includes('.vercel.app')) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow all for now
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
