@@ -21,13 +21,13 @@ const comparePasswords = async (password, hashedPassword) => {
   }
 };
 
-const generateToken = (payload, expiresIn = process.env.JWT_EXPIRE) => {
+const generateToken = (payload, expiresIn = process.env.JWT_EXPIRE || '7d') => {
   return jwt.sign(payload, JWT_SECRET, { expiresIn });
 };
 
 const generateRefreshToken = (payload) => {
   return jwt.sign(payload, process.env.JWT_REFRESH_SECRET || JWT_SECRET, {
-    expiresIn: process.env.JWT_REFRESH_EXPIRE
+    expiresIn: process.env.JWT_REFRESH_EXPIRE || '30d'
   });
 };
 
