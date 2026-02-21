@@ -367,7 +367,7 @@ const sendAdmissionConfirmation = async (email, name, admissionNumber, className
     <div class="message">
       Our admission team will review your application and contact you shortly with further details.
     </div>
-    <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard" class="button">View Dashboard</a>
+    <a href="${process.env.FRONTEND_URL || 'https://topviewpublicschool.vercel.app'}/dashboard" class="button">View Dashboard</a>
   `;
 
   return sendEmail(email, `🎓 Admission Confirmed - ${SCHOOL_NAME}`, baseEmailTemplate(content));
@@ -425,7 +425,7 @@ const sendPaymentReceipt = async (email, name, amount, transactionId, feeType, c
     <div class="message">
       Your payment has been processed successfully. Please keep this receipt for your records.
     </div>
-    <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard" class="button">View Dashboard</a>
+    <a href="${process.env.FRONTEND_URL || 'https://topviewpublicschool.vercel.app'}/dashboard" class="button">View Dashboard</a>
   `;
 
   return sendEmail(email, `💰 Payment Receipt - ${SCHOOL_NAME}`, baseEmailTemplate(content));
@@ -444,7 +444,7 @@ const sendContactReply = async (email, name, message) => {
     <div class="message">
       We have received your message and will get back to you within 24-48 hours.
     </div>
-    <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/contact" class="button">Contact Us</a>
+    <a href="${process.env.FRONTEND_URL || 'https://topviewpublicschool.vercel.app'}/contact" class="button">Contact Us</a>
   `;
 
   return sendEmail(email, `📬 We Received Your Message - ${SCHOOL_NAME}`, baseEmailTemplate(content));
@@ -468,14 +468,14 @@ const sendWelcomeEmail = async (email, name) => {
       </div>
       <div class="highlight-item">
         <span class="highlight-label">Login URL</span>
-        <span class="highlight-value">${process.env.FRONTEND_URL || 'http://localhost:3000'}/login</span>
+        <span class="highlight-value">${process.env.FRONTEND_URL || 'https://topviewpublicschool.vercel.app'}/login</span>
       </div>
     </div>
     <div class="verified-badge">✓ Account Verified</div>
     <div class="message">
       If you have any questions, feel free to contact us.
     </div>
-    <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/login" class="button">Login Now</a>
+    <a href="${process.env.FRONTEND_URL || 'https://topviewpublicschool.vercel.app'}/login" class="button">Login Now</a>
   `;
 
   return sendEmail(email, `🎉 Welcome to ${SCHOOL_NAME} Portal`, baseEmailTemplate(content));
@@ -504,7 +504,7 @@ const sendAdminReplyEmail = async (email, userName, originalSubject, replyMessag
     <div class="message" style="font-size: 12px; color: #999; margin-top: 20px;">
       This is an automated response from ${SCHOOL_NAME}. Please do not reply directly to this email. For urgent queries, please call us during school hours.
     </div>
-    <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/contact" class="button">Visit Contact Page</a>
+    <a href="${process.env.FRONTEND_URL || 'https://topviewpublicschool.vercel.app'}/contact" class="button">Visit Contact Page</a>
   `;
 
   return sendEmail(email, `Re: ${originalSubject} - ${SCHOOL_NAME}`, baseEmailTemplate(content));
@@ -544,8 +544,8 @@ const sendContactConfirmation = async (email, name, subject) => {
     <div class="message" style="font-size: 12px; color: #999; margin-top: 20px;">
       Please do not reply to this automated email. For urgent inquiries, please contact us during school office hours.
     </div>
-    <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/contact" class="button">Visit Contact Page</a>
-    <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/about" class="button" style="background: #28a745; margin-left: 10px;">Learn More About Us</a>
+    <a href="${process.env.FRONTEND_URL || 'https://topviewpublicschool.vercel.app'}/contact" class="button">Visit Contact Page</a>
+    <a href="${process.env.FRONTEND_URL || 'https://topviewpublicschool.vercel.app'}/about" class="button" style="background: #28a745; margin-left: 10px;">Learn More About Us</a>
   `;
 
   return sendEmail(email, `📬 We Received Your Message - ${SCHOOL_NAME}`, baseEmailTemplate(content));
@@ -576,12 +576,12 @@ const sendUserCredentials = async (email, name, tempPassword) => {
     </div>
     <div class="contact-info" style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0;">
       <h4 style="margin: 0 0 15px 0; color: #1a1a2e;">Login Here</h4>
-      <p style="margin: 5px 0; color: #666;"><strong>Portal URL:</strong> ${process.env.FRONTEND_URL || 'http://localhost:3000'}/login</p>
+      <p style="margin: 5px 0; color: #666;"><strong>Portal URL:</strong> ${process.env.FRONTEND_URL || 'https://topviewpublicschool.vercel.app'}/login</p>
       <p style="margin: 5px 0; color: #666;"><strong>Email:</strong> ${SCHOOL_EMAIL}</p>
       <p style="margin: 5px 0; color: #666;"><strong>Phone:</strong> ${SCHOOL_PHONE}</p>
     </div>
     <div class="verified-badge">✓ Account Created by Administrator</div>
-    <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/login" class="button">Login Now</a>
+    <a href="${process.env.FRONTEND_URL || 'https://topviewpublicschool.vercel.app'}/login" class="button">Login Now</a>
   `;
 
   return sendEmail(email, `🔑 Your Login Credentials - ${SCHOOL_NAME}`, baseEmailTemplate(content));
