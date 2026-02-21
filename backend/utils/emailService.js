@@ -8,6 +8,8 @@ logger.info(`[EmailService] EMAIL_USER: "${process.env.EMAIL_USER}"`);
 logger.info(`[Email_USER present: ${!!process.env.EMAIL_USER}`);
 logger.info(`[EmailService] EMAIL_PASSWORD present: ${!!process.env.EMAIL_PASSWORD}`);
 logger.info(`[EmailService] EMAIL_PASSWORD length: ${process.env.EMAIL_PASSWORD ? process.env.EMAIL_PASSWORD.length : 0}`);
+logger.info(`[EmailService] EMAIL_PASS present: ${!!process.env.EMAIL_PASS}`);
+logger.info(`[EmailService] EMAIL_PASS length: ${process.env.EMAIL_PASS ? process.env.EMAIL_PASS.length : 0}`);
 
 const SCHOOL_LOGO_URL = process.env.SCHOOL_LOGO_URL || 'https://topviewpublicschool.com/logo.png';
 const SCHOOL_NAME = 'Top View Public School';
@@ -25,6 +27,7 @@ const transporter = nodemailer.createTransport({
   }
 });
 
+logger.info(`[EmailService] Using email password: ${(process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS) ? 'YES' : 'NO'}`);
 logger.info(`[EmailService] Transporter created with service: gmail`);
 
 transporter.verify((error, success) => {
