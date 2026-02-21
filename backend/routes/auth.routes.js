@@ -17,6 +17,7 @@ router.post('/login', sanitize, AuthController.login);
 // Existing routes
 router.get('/profile', auth, AuthController.getProfile);
 router.put('/profile', auth, sanitize, AuthController.updateProfile);
+router.put('/change-password', auth, sanitize, AuthController.changePassword);
 router.post('/refresh-token', auth, AuthController.refreshToken);
 router.post('/lookup-student', sanitize, AuthController.lookupStudent);
 

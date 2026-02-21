@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../api/axios';
 import './Dashboard.css';
@@ -6,7 +7,7 @@ import './Dashboard.css';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 const Dashboard = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
   const [admissions, setAdmissions] = useState([]);
   const [payments, setPayments] = useState([]);
@@ -26,8 +27,10 @@ const Dashboard = () => {
   const [profilePicLoading, setProfilePicLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [updateLoading, setUpdateLoading] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
   const [selectedAdmission, setSelectedAdmission] = useState(null);
   const [showAdmissionModal, setShowAdmissionModal] = useState(false);
+  const [searchParams] = useSearchParams();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -35,6 +38,13 @@ const Dashboard = () => {
     address: '',
     occupation: ''
   });
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && ['profile', 'admissions', 'payments', 'upload', 'documents', 'security'].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     // Load profile picture from localStorage with user-specific key
@@ -433,6 +443,12 @@ const Dashboard = () => {
               onClick={() => setActiveTab('documents')}
             >
               Documents
+            </button>
+            <button
+              className={activeTab === 'security' ? 'active' : ''}
+              onClick={() => setActiveTab('security')}
+            >
+              Security
             </button>
             <button onClick={logout} className="logout-btn">
               Logout
@@ -1342,6 +1358,77 @@ const Dashboard = () => {
                 <a href="#" className="document-link">
                   <span>📄</span> Student ID Card
                 </a>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'security' && (
+            <div className="content-section">
+              <h2>Security Settings</h2>
+              {user?.mustChangePassword && (
+                <div className="alert alert-warning">
+                  <strong>⚠️ Required:</strong> You must change your temporary password before continuing.
+                </div>
+              )}
+              <div className="security-section">
+                <h3>Change Password</h3>
+                <form onSubmit={async (e) => {
+                  e.preventDefault();
+                  const currentPassword = e.target.currentPassword.value;
+                  const newPassword = e.target.newPassword.value;
+                  const confirmPassword = e.target.confirmPassword.value;
+
+                  if (newPassword !== confirmPassword) {
+                    alert('New passwords do not match!');
+                    return;
+                  }
+
+                  if (newPassword.length < 6) {
+                    alert('Password must be at least 6 characters!');
+                    return;
+                  }
+
+                  setPasswordLoading(true);
+                  try {
+                    const response = await axiosInstance.put('/auth/change-password', {
+                      currentPassword,
+                      newPassword
+                    });
+                    if (response.data.success) {
+                      alert('Password changed successfully!');
+                      e.target.reset();
+                      
+                      // Update user context to remove mustChangePassword flag
+                      const updatedUser = { ...user, mustChangePassword: false };
+                      updateUser(updatedUser);
+                      
+                      // Redirect to profile after successful password change
+                      setActiveTab('profile');
+                    } else {
+                      alert(response.data.message || 'Failed to change password');
+                    }
+                  } catch (err) {
+                    alert(err.response?.data?.message || 'Failed to change password');
+                  } finally {
+                    setPasswordLoading(false);
+                  }
+                }} className="password-form">
+                  <div className="form-group">
+                    <label>Current Password *</label>
+                    <input type="password" name="currentPassword" required disabled={passwordLoading} />
+                  </div>
+                  <div className="form-group">
+                    <label>New Password *</label>
+                    <input type="password" name="newPassword" required minLength="6" disabled={passwordLoading} />
+                  </div>
+                  <div className="form-group">
+                    <label>Confirm New Password *</label>
+                    <input type="password" name="confirmPassword" required minLength="6" disabled={passwordLoading} />
+                  </div>
+                  <button type="submit" className="submit-btn" disabled={passwordLoading}>
+                    {passwordLoading ? 'Changing...' : 'Change Password'}
+                  </button>
+                </form>
               </div>
             </div>
           )}

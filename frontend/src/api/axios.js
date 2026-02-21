@@ -17,15 +17,24 @@ axiosInstance.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    // Dispatch loading event
+    window.dispatchEvent(new CustomEvent('api-request-start'));
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => {
+    window.dispatchEvent(new CustomEvent('api-request-end'));
+    return Promise.reject(error);
+  }
 );
 
 // Handle responses
 axiosInstance.interceptors.response.use(
-  (response) => response.data,
+  (response) => {
+    window.dispatchEvent(new CustomEvent('api-request-end'));
+    return response.data;
+  },
   (error) => {
+    window.dispatchEvent(new CustomEvent('api-request-end'));
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');

@@ -31,6 +31,8 @@ router.get('/dashboard/stats', auth, authorize('admin'), AdminController.getDash
 
 // Users
 router.get('/users', auth, authorize('admin'), AdminController.getAllUsers);
+router.post('/users', auth, authorize('admin'), AdminController.createUser);
+router.put('/users/:id', auth, authorize('admin'), AdminController.updateUser);
 router.put('/users/:id/status', auth, authorize('admin'), AdminController.updateUserStatus);
 router.delete('/users/:id', auth, authorize('admin'), AdminController.deleteUser);
 

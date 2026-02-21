@@ -8,6 +8,7 @@ const Gallery = require('../models/Gallery');
 const Student = require('../models/Student');
 const logger = require('../config/logger');
 const { db } = require('../config/db');
+const { sendUserCredentials } = require('../utils/emailService');
 
 class AdminController {
   static async getDashboardStats(req, res) {
@@ -130,10 +131,13 @@ class AdminController {
 
   static async getAllUsers(req, res) {
     try {
-      const limit = req.query.limit || 20;
-      const offset = req.query.offset || 0;
+      const limit = parseInt(req.query.limit) || 20;
+      const offset = parseInt(req.query.offset) || 0;
+      const status = req.query.status || null;
+      const role = req.query.role || null;
+      const search = req.query.search || null;
 
-      const result = await User.getAllUsers(limit, offset);
+      const result = await User.getAllUsers(limit, offset, status, role, search);
 
       res.status(200).json({
         success: true,
@@ -276,6 +280,59 @@ class AdminController {
   }
 
   // User Management
+  static async createUser(req, res) {
+    try {
+      const { firstName, lastName, email, phone, role, status } = req.body;
+      
+      const existing = await db.query('SELECT id FROM users WHERE email = $1', [email]);
+      if (existing.rows.length > 0) {
+        return res.status(400).json({ success: false, message: 'Email already exists' });
+      }
+
+      const tempPassword = Math.random().toString(36).slice(-8);
+      const hashedPassword = await require('bcryptjs').hash(tempPassword, 10);
+
+      const result = await User.create({
+        firstName, lastName, email, phone,
+        password: hashedPassword,
+        role: role || 'parent',
+        status: status || 'active'
+      });
+
+      try {
+        await sendUserCredentials(email, `${firstName} ${lastName}`, tempPassword);
+      } catch (emailErr) {
+        logger.error('Failed to send credentials email:', emailErr);
+      }
+
+      res.status(201).json({ 
+        success: true, 
+        message: 'User created successfully. Login credentials have been sent to their email.',
+        data: result
+      });
+    } catch (error) {
+      logger.error('Create user error:', error);
+      res.status(500).json({ success: false, message: 'Failed to create user' });
+    }
+  }
+
+  static async updateUser(req, res) {
+    try {
+      const { id } = req.params;
+      const { firstName, lastName, phone, role, status } = req.body;
+
+      await db.query(
+        `UPDATE users SET first_name = $1, last_name = $2, phone = $3, role = $4, status = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6`,
+        [firstName, lastName, phone, role, status, id]
+      );
+
+      res.status(200).json({ success: true, message: 'User updated successfully' });
+    } catch (error) {
+      logger.error('Update user error:', error);
+      res.status(500).json({ success: false, message: 'Failed to update user' });
+    }
+  }
+
   static async updateUserStatus(req, res) {
     try {
       const { id } = req.params;

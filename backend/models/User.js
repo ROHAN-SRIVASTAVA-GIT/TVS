@@ -28,6 +28,7 @@ class User {
       // Add address and occupation columns if they don't exist
       await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS address TEXT`);
       await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS occupation VARCHAR(100)`);
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT true`);
       
       logger.info('Users table created successfully');
     } catch (error) {
@@ -73,7 +74,7 @@ class User {
   }
 
   static async findById(id) {
-    const query = 'SELECT id, email, first_name, last_name, phone, role, status, avatar, created_at FROM users WHERE id = $1';
+    const query = 'SELECT id, email, first_name, last_name, phone, role, status, avatar, password, created_at FROM users WHERE id = $1';
     
     try {
       const result = await db.query(query, [id]);
@@ -109,17 +110,45 @@ class User {
     }
   }
 
-  static async getAllUsers(limit = 10, offset = 0) {
+  static async getAllUsers(limit = 10, offset = 0, status = null, role = null, search = null) {
+    let conditions = [];
+    let params = [];
+    let paramCount = 1;
+
+    if (status) {
+      conditions.push(`status = $${paramCount}`);
+      params.push(status);
+      paramCount++;
+    }
+    if (role) {
+      conditions.push(`role = $${paramCount}`);
+      params.push(role);
+      paramCount++;
+    }
+    if (search) {
+      conditions.push(`(first_name ILIKE $${paramCount} OR last_name ILIKE $${paramCount} OR email ILIKE $${paramCount})`);
+      params.push(`%${search}%`);
+      paramCount++;
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    
     const query = `
-      SELECT id, email, first_name, last_name, role, status, created_at
+      SELECT id, email, first_name, last_name, phone, role, status, created_at
       FROM users
+      ${whereClause}
       ORDER BY created_at DESC
-      LIMIT $1 OFFSET $2
+      LIMIT $${paramCount} OFFSET $${paramCount + 1}
     `;
     
+    params.push(limit, offset);
+
+    const countQuery = `SELECT COUNT(*) FROM users ${whereClause}`;
+    const countParams = params.slice(0, -2);
+    
     try {
-      const result = await db.query(query, [limit, offset]);
-      const countResult = await db.query('SELECT COUNT(*) FROM users');
+      const result = await db.query(query, params);
+      const countResult = await db.query(countQuery, countParams);
       
       return {
         users: result.rows,

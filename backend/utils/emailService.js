@@ -470,6 +470,42 @@ const sendContactConfirmation = async (email, name, subject) => {
   return sendEmail(email, `📬 We Received Your Message - ${SCHOOL_NAME}`, baseEmailTemplate(content));
 };
 
+const sendUserCredentials = async (email, name, tempPassword) => {
+  const content = `
+    <div class="success-icon">🔐</div>
+    <div class="greeting">Dear ${name},</div>
+    <div class="message">
+      Your account has been created at <strong>${SCHOOL_NAME}</strong>. Please find your login credentials below:
+    </div>
+    <div class="highlight-box" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); padding: 25px; border-radius: 15px; color: white; text-align: center;">
+      <div style="margin: 10px 0;">
+        <span style="font-size: 14px; opacity: 0.9;">Email</span><br>
+        <span style="font-size: 18px; font-weight: bold;">${email}</span>
+      </div>
+      <div style="margin: 10px 0;">
+        <span style="font-size: 14px; opacity: 0.9;">Temporary Password</span><br>
+        <span style="font-size: 18px; font-weight: bold;">${tempPassword}</span>
+      </div>
+    </div>
+    <div class="message" style="background: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107;">
+      <strong>⚠️ Important:</strong> Please change your password after first login for security purposes.
+    </div>
+    <div class="message">
+      You can now login to the school portal using these credentials.
+    </div>
+    <div class="contact-info" style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0;">
+      <h4 style="margin: 0 0 15px 0; color: #1a1a2e;">Login Here</h4>
+      <p style="margin: 5px 0; color: #666;"><strong>Portal URL:</strong> ${process.env.FRONTEND_URL || 'http://localhost:3000'}/login</p>
+      <p style="margin: 5px 0; color: #666;"><strong>Email:</strong> ${SCHOOL_EMAIL}</p>
+      <p style="margin: 5px 0; color: #666;"><strong>Phone:</strong> ${SCHOOL_PHONE}</p>
+    </div>
+    <div class="verified-badge">✓ Account Created by Administrator</div>
+    <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/login" class="button">Login Now</a>
+  `;
+
+  return sendEmail(email, `🔑 Your Login Credentials - ${SCHOOL_NAME}`, baseEmailTemplate(content));
+};
+
 module.exports = {
   sendEmail,
   sendAdmissionConfirmation,
@@ -478,5 +514,6 @@ module.exports = {
   sendWelcomeEmail,
   sendAdminReplyEmail,
   sendContactConfirmation,
+  sendUserCredentials,
   baseEmailTemplate
 };

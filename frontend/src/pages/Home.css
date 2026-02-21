@@ -163,7 +163,8 @@
 
 .class-info {
   font-size: 0.85rem;
-  opacity: 0.8;
+  opacity: 0.9;
+  color: #ffd700;
 }
 
 .statistics {

@@ -1,10 +1,13 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { LoadingProvider } from './context/LoadingContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import ScrollToTop from './components/ScrollToTop';
 import ProtectedRoute from './components/ProtectedRoute';
+import GlobalLoader from './components/GlobalLoader';
+import AdmissionBanner from './components/AdmissionBanner';
 
 // Pages
 import Home from './pages/Home';
@@ -29,42 +32,46 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <ScrollToTop />
-        <Navbar />
-        <main className="main-content">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/admission" element={<Admission />} />
-            <Route path="/fees" element={<Fees />} />
-            <Route path="/payment" element={<Payment />} />
-            <Route path="/gallery" element={<Gallery />} />
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/notices" element={<NoticeBoard />} />
-            <Route path="/faculty" element={<Faculty />} />
-            <Route path="/payment-callback" element={<PaymentCallback />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin"
-              element={
-                <ProtectedRoute>
-                  <Admin />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </main>
-        <Footer />
+        <LoadingProvider>
+          <GlobalLoader />
+          <ScrollToTop />
+          <Navbar />
+          <AdmissionBanner />
+          <main className="main-content">
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/admission" element={<Admission />} />
+              <Route path="/fees" element={<Fees />} />
+              <Route path="/payment" element={<Payment />} />
+              <Route path="/gallery" element={<Gallery />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/notices" element={<NoticeBoard />} />
+              <Route path="/faculty" element={<Faculty />} />
+              <Route path="/payment-callback" element={<PaymentCallback />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute>
+                    <Admin />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </main>
+          <Footer />
+        </LoadingProvider>
       </AuthProvider>
     </Router>
   );

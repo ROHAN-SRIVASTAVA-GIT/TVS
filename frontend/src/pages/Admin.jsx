@@ -18,6 +18,7 @@ const Admin = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
   
   // Data states
   const [users, setUsers] = useState([]);
@@ -32,7 +33,7 @@ const Admin = () => {
   
   // Pagination & Filters
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0 });
-  const [filters, setFilters] = useState({ status: '', search: '', type: '' });
+  const [filters, setFilters] = useState({ status: '', search: '', type: '', role: '' });
   const [period, setPeriod] = useState('all');
   const [selectedItem, setSelectedItem] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -77,7 +78,7 @@ const Admin = () => {
   const fetchUsers = async (offset) => {
     setLoading(true);
     try {
-      const res = await axiosInstance.get(`/admin/users?limit=${pagination.limit}&offset=${offset}&status=${filters.status}&search=${filters.search}`);
+      const res = await axiosInstance.get(`/admin/users?limit=${pagination.limit}&offset=${offset}&status=${filters.status}&role=${filters.role}&search=${filters.search}`);
       setUsers(res.data.users || []);
       setPagination(p => ({ ...p, total: res.data.total || 0 }));
     } catch (err) { console.error(err); }
@@ -164,23 +165,29 @@ const Admin = () => {
 
   // Actions
   const updateStatus = async (endpoint, id, status) => {
+    setActionLoading(true);
     try {
       await axiosInstance.put(`/admin/${endpoint}/${id}/status`, { status });
       loadTabData();
       setShowModal(false);
     } catch (err) {
       console.error('Update failed:', err);
+    } finally {
+      setActionLoading(false);
     }
   };
 
   const deleteItem = async (endpoint, id) => {
     if (!window.confirm('Are you sure you want to delete this item?')) return;
+    setActionLoading(true);
     try {
       await axiosInstance.delete(`/admin/${endpoint}/${id}`);
       loadTabData();
       setShowModal(false);
     } catch (err) {
       console.error('Delete failed:', err);
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -209,6 +216,8 @@ const Admin = () => {
         return { name: '', admission_number: '', class_name: '', father_name: '', mother_name: '', phone: '', email: '', address: '', dob: '', gender: '' };
       case 'gallery':
         return { title: '', category: 'general' };
+      case 'user':
+        return { firstName: '', lastName: '', email: '', phone: '', role: 'parent', status: 'active' };
       default:
         return {};
     }
@@ -216,11 +225,20 @@ const Admin = () => {
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
+    setActionLoading(true);
     try {
       let endpoint = '';
       let method = 'post';
       
       switch(activeTab) {
+        case 'users':
+          endpoint = 'users';
+          if (modalMode === 'edit') {
+            await axiosInstance.put(`/admin/users/${selectedItem.id}`, formData);
+          } else {
+            await axiosInstance.post(`/admin/${endpoint}`, formData);
+          }
+          break;
         case 'notices':
           endpoint = 'notices';
           if (modalMode === 'edit') {
@@ -273,6 +291,8 @@ const Admin = () => {
     } catch (err) {
       console.error('Form submit failed:', err);
       alert('Operation failed: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -353,10 +373,15 @@ const Admin = () => {
           {activeTab === 'dashboard' && <DashboardTab stats={stats} loading={loading} setActiveTab={setActiveTab} period={period} setPeriod={setPeriod} />}
           
           {activeTab === 'users' && (
+            <div className="section-header">
+              <h2>Users Management</h2>
+              <button className="add-btn" onClick={() => openCreateForm('user')}>+ Add User</button>
+            </div>
+          )}
+          {activeTab === 'users' && (
             <DataTable
-              title="Users Management"
               data={users}
-              columns={['ID', 'Name', 'Email', 'Phone', 'Role', 'Status', 'Joined']}
+              columns={['ID', 'Name', 'Email', 'Phone', 'Role', 'Status', 'Joined', 'Actions']}
               renderRow={(u) => (
                 <>
                   <td>{u.id}</td>
@@ -366,9 +391,13 @@ const Admin = () => {
                   <td><span className={`role-badge ${u.role}`}>{u.role}</span></td>
                   <td><span className={`status-badge ${u.status}`}>{u.status}</span></td>
                   <td>{new Date(u.created_at).toLocaleDateString()}</td>
+                  <td>
+                    <button className="action-btn edit" onClick={() => openEditForm(u, 'user')}>Edit</button>
+                    <button className="action-btn reject" onClick={() => deleteItem('users', u.id)} disabled={actionLoading}>Delete</button>
+                  </td>
                 </>
               )}
-              filters={<FilterBar filters={filters} setFilters={setFilters} options={{ status: ['active', 'inactive'] }} />}
+              filters={<FilterBar filters={filters} setFilters={setFilters} options={{ status: ['active', 'inactive'], role: ['admin', 'parent', 'student', 'teacher'] }} />}
               loading={loading}
               pagination={pagination}
               setPagination={setPagination}
@@ -394,8 +423,8 @@ const Admin = () => {
                     <button className="action-btn view" onClick={() => viewDetails(a)}>View</button>
                     {a.status === 'pending' && (
                       <>
-                        <button className="action-btn approve" onClick={() => updateStatus('admissions', a.id, 'approved')}>Approve</button>
-                        <button className="action-btn reject" onClick={() => updateStatus('admissions', a.id, 'rejected')}>Reject</button>
+                        <button className="action-btn approve" onClick={() => updateStatus('admissions', a.id, 'approved')} disabled={actionLoading}>Approve</button>
+                        <button className="action-btn reject" onClick={() => updateStatus('admissions', a.id, 'rejected')} disabled={actionLoading}>Reject</button>
                       </>
                     )}
                   </td>
@@ -487,7 +516,7 @@ const Admin = () => {
                       setFormData({ replyMessage: '', subject: c.subject });
                       setShowModal(true);
                     }}>Reply</button>
-                    <button className="action-btn reject" onClick={() => deleteItem('contacts', c.id)}>Delete</button>
+                    <button className="action-btn reject" onClick={() => deleteItem('contacts', c.id)} disabled={actionLoading}>Delete</button>
                   </td>
                 </>
               )}
@@ -519,7 +548,7 @@ const Admin = () => {
                   <td>
                     <button className="action-btn view" onClick={() => viewDetails(n)}>View</button>
                     <button className="action-btn edit" onClick={() => openEditForm(n, 'notice')}>Edit</button>
-                    <button className="action-btn reject" onClick={() => deleteItem('notices', n.id)}>Delete</button>
+                    <button className="action-btn reject" onClick={() => deleteItem('notices', n.id)} disabled={actionLoading}>Delete</button>
                   </td>
                 </>
               )}
@@ -551,7 +580,7 @@ const Admin = () => {
                   <td className="amount">₹{parseFloat(f.total_fee || 0).toLocaleString('en-IN')}</td>
                   <td>
                     <button className="action-btn view" onClick={() => openEditForm(f, 'fee')}>Edit</button>
-                    <button className="action-btn reject" onClick={() => deleteItem('fee-structures', f.id)}>Delete</button>
+                    <button className="action-btn reject" onClick={() => deleteItem('fee-structures', f.id)} disabled={actionLoading}>Delete</button>
                   </td>
                 </>
               )}
@@ -581,7 +610,7 @@ const Admin = () => {
                   <td>
                     <button className="action-btn view" onClick={() => viewDetails(s)}>View</button>
                     <button className="action-btn edit" onClick={() => openEditForm(s, 'student')}>Edit</button>
-                    <button className="action-btn reject" onClick={() => deleteItem('students', s.id)}>Delete</button>
+                    <button className="action-btn reject" onClick={() => deleteItem('students', s.id)} disabled={actionLoading}>Delete</button>
                   </td>
                 </>
               )}
@@ -621,7 +650,7 @@ const Admin = () => {
                   <td>{new Date(g.created_at).toLocaleDateString()}</td>
                   <td>
                     <button className="action-btn view" onClick={() => viewDetails(g)}>View</button>
-                    <button className="action-btn reject" onClick={() => deleteItem('gallery', g.id)}>Delete</button>
+                    <button className="action-btn reject" onClick={() => deleteItem('gallery', g.id)} disabled={actionLoading}>Delete</button>
                   </td>
                 </>
               )}
@@ -671,7 +700,8 @@ const Admin = () => {
                  activeTab === 'notices' ? 'Notice' : 
                  activeTab === 'fees' ? 'Fee Structure' : 
                  activeTab === 'students' ? 'Student' : 
-                 activeTab === 'gallery' ? 'Gallery Item' : 'Details'}
+                 activeTab === 'gallery' ? 'Gallery Item' : 
+                 activeTab === 'users' ? 'User' : 'Details'}
               </h3>
               <button className="close-btn" onClick={() => setShowModal(false)}>×</button>
             </div>
@@ -679,6 +709,7 @@ const Admin = () => {
               {modalMode === 'reply' && activeTab === 'contacts' ? (
                 <form onSubmit={async (e) => {
                   e.preventDefault();
+                  setActionLoading(true);
                   try {
                     await axiosInstance.post(`/admin/contacts/${selectedItem.id}/reply`, {
                       replyMessage: formData.replyMessage,
@@ -689,6 +720,8 @@ const Admin = () => {
                     loadTabData();
                   } catch (err) {
                     alert('Failed to send reply: ' + (err.message || 'Unknown error'));
+                  } finally {
+                    setActionLoading(false);
                   }
                 }} className="admin-form">
                   <div className="reply-info">
@@ -715,12 +748,59 @@ const Admin = () => {
                     />
                   </div>
                   <div className="form-actions">
-                    <button type="submit" className="submit-btn">Send Reply</button>
-                    <button type="button" className="cancel-btn" onClick={() => setShowModal(false)}>Cancel</button>
+                    <button type="submit" className="submit-btn" disabled={actionLoading}>
+                      {actionLoading ? 'Sending...' : 'Send Reply'}
+                    </button>
+                    <button type="button" className="cancel-btn" onClick={() => setShowModal(false)} disabled={actionLoading}>Cancel</button>
                   </div>
                 </form>
               ) : (modalMode === 'create' || modalMode === 'edit') ? (
                 <form onSubmit={handleFormSubmit} className="admin-form">
+                  {/* User Form */}
+                  {activeTab === 'users' && (
+                    <>
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label>First Name *</label>
+                          <input type="text" value={formData.firstName || ''} onChange={e => setFormData({...formData, firstName: e.target.value})} required />
+                        </div>
+                        <div className="form-group">
+                          <label>Last Name *</label>
+                          <input type="text" value={formData.lastName || ''} onChange={e => setFormData({...formData, lastName: e.target.value})} required />
+                        </div>
+                      </div>
+                      <div className="form-group">
+                        <label>Email *</label>
+                        <input type="email" value={formData.email || ''} onChange={e => setFormData({...formData, email: e.target.value})} required disabled={modalMode === 'edit'} />
+                      </div>
+                      <div className="form-group">
+                        <label>Phone</label>
+                        <input type="text" value={formData.phone || ''} onChange={e => setFormData({...formData, phone: e.target.value})} maxLength="10" />
+                      </div>
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label>Role</label>
+                          <select value={formData.role || 'parent'} onChange={e => setFormData({...formData, role: e.target.value})}>
+                            <option value="parent">Parent</option>
+                            <option value="student">Student</option>
+                            <option value="teacher">Teacher</option>
+                            <option value="admin">Admin</option>
+                          </select>
+                        </div>
+                        <div className="form-group">
+                          <label>Status</label>
+                          <select value={formData.status || 'active'} onChange={e => setFormData({...formData, status: e.target.value})}>
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                          </select>
+                        </div>
+                      </div>
+                      {modalMode === 'create' && (
+                        <p className="form-info">A temporary password will be generated and sent to the user's email.</p>
+                      )}
+                    </>
+                  )}
+
                   {/* Notice Form */}
                   {activeTab === 'notices' && (
                     <>
@@ -918,10 +998,10 @@ const Admin = () => {
                   )}
 
                   <div className="form-actions">
-                    <button type="submit" className="submit-btn">
-                      {modalMode === 'create' ? 'Create' : 'Update'}
+                    <button type="submit" className="submit-btn" disabled={actionLoading}>
+                      {actionLoading ? 'Processing...' : (modalMode === 'create' ? 'Create' : 'Update')}
                     </button>
-                    <button type="button" className="cancel-btn" onClick={() => setShowModal(false)}>Cancel</button>
+                    <button type="button" className="cancel-btn" onClick={() => setShowModal(false)} disabled={actionLoading}>Cancel</button>
                   </div>
                 </form>
               ) : (
@@ -1164,6 +1244,12 @@ const FilterBar = ({ filters, setFilters, options }) => (
       <select value={filters.status} onChange={e => setFilters({...filters, status: e.target.value})}>
         <option value="">All Status</option>
         {options.status.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+      </select>
+    )}
+    {options.role && (
+      <select value={filters.role} onChange={e => setFilters({...filters, role: e.target.value})}>
+        <option value="">All Roles</option>
+        {options.role.map(r => <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
       </select>
     )}
     <input 

@@ -26,7 +26,7 @@ const Footer = () => {
         <div className="footer-section">
           <h3>Contact Info</h3>
           <div className="contact-info">
-            <p><FiPhone /> 9470525155</p>
+            <p><FiPhone /> 9470525155 / 9199204566</p>
             <p><FiMail /> topviewpublicschool@gmail.com</p>
             <p><FiMapPin /> Manju Sadan Basdiha, Panki, Palamu, Jharkhand 822122</p>
           </div>

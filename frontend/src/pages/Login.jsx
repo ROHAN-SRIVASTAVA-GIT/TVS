@@ -105,9 +105,11 @@ const Login = () => {
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
         console.log('Login successful, redirecting...');
-        // Redirect based on role
+        // Check if user must change password (but admins go to admin panel regardless)
         if (response.data.user.role === 'admin') {
           window.location.href = '/admin';
+        } else if (response.data.user.mustChangePassword) {
+          window.location.href = '/dashboard?tab=security';
         } else {
           window.location.href = '/dashboard';
         }
@@ -138,9 +140,12 @@ const Login = () => {
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
         console.log('Login successful, redirecting...');
-        // Redirect based on role
+        
+        // Check if user must change password (but admins go to admin panel regardless)
         if (response.data.user.role === 'admin') {
           window.location.href = '/admin';
+        } else if (response.data.user.mustChangePassword) {
+          window.location.href = '/dashboard?tab=security';
         } else {
           window.location.href = '/dashboard';
         }
