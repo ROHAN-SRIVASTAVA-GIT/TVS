@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../api/axios';
 import './Login.css';
 
@@ -14,10 +13,9 @@ const Login = () => {
   const [step, setStep] = useState(1); // 1: email, 2: OTP
   const [otp, setOtp] = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const [verificationToken, setVerificationToken] = useState('');
   const [resendTimer, setResendTimer] = useState(0);
-
-  const navigate = useNavigate();
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });

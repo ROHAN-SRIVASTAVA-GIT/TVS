@@ -22,12 +22,14 @@ const Home = () => {
   const [otp, setOtp] = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
+  // eslint-disable-next-line no-unused-vars
   const [receiptAccessToken, setReceiptAccessToken] = useState('');
   const [pendingReceiptId, setPendingReceiptId] = useState(null);
+  // eslint-disable-next-line no-unused-vars
   const [currentOrderId, setCurrentOrderId] = useState(null);
   const [pollingStatus, setPollingStatus] = useState('idle');
 
-  // Check for pending payment on page load
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     // First check localStorage
     const pendingOrderId = localStorage.getItem('pendingPaymentOrderId');
