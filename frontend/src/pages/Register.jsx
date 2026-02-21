@@ -21,6 +21,7 @@ const Register = () => {
   const [step, setStep] = useState(1); // 1: details, 2: OTP
   const [otp, setOtp] = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const [verificationToken, setVerificationToken] = useState('');
   const [resendTimer, setResendTimer] = useState(0);
 

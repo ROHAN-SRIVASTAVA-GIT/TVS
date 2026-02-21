@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import axiosInstance from '../api/axios';
 import './Payment.css';
 

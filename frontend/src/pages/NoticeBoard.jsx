@@ -8,6 +8,7 @@ const NoticeBoard = () => {
 
   useEffect(() => {
     fetchNotices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchNotices = async () => {
