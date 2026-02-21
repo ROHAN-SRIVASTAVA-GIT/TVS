@@ -11,7 +11,7 @@ logger.info(`[EmailService] OAUTH_CLIENT_SECRET present: ${!!process.env.OAUTH_C
 logger.info(`[EmailService] OAUTH_REFRESH_TOKEN present: ${!!process.env.OAUTH_REFRESH_TOKEN}`);
 logger.info(`[EmailService] OAUTH_EMAIL present: ${!!process.env.OAUTH_EMAIL}`);
 
-const SCHOOL_LOGO_URL = process.env.SCHOOL_LOGO_URL || 'https://topviewpublicschool.com/logo.png';
+const SCHOOL_LOGO_URL = process.env.SCHOOL_LOGO_URL || 'https://topviewpublicschool.vercel.app/logo.png';
 const SCHOOL_NAME = 'Top View Public School';
 const SCHOOL_TAGLINE = 'Excellence in Education';
 const SCHOOL_ADDRESS = 'Manju Sadan Basdiha, Near College Gate, Surya Mandir, Panki Palamu, Jharkhand 822122';
