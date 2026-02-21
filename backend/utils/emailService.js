@@ -1,26 +1,15 @@
 require('dotenv').config();
 
 const nodemailer = require('nodemailer');
+const { google } = require('googleapis');
+const MailComposer = require('nodemailer/lib/mail-composer');
 const logger = require('../config/logger');
 
-// Initialize Resend if configured
-let resend;
-if (process.env.RESEND_API_KEY) {
-  try {
-    resend = require('resend').Resend;
-    logger.info(`[EmailService] Resend initialized with API key`);
-  } catch (e) {
-    logger.info(`[EmailService] Resend package not found, using SMTP`);
-  }
-}
-
 logger.info(`[EmailService] === INITIALIZING ===`);
-logger.info(`[EmailService] EMAIL_USER: "${process.env.EMAIL_USER}"`);
-logger.info(`[Email_USER present: ${!!process.env.EMAIL_USER}`);
-logger.info(`[EmailService] EMAIL_PASSWORD present: ${!!process.env.EMAIL_PASSWORD}`);
-logger.info(`[EmailService] EMAIL_PASSWORD length: ${process.env.EMAIL_PASSWORD ? process.env.EMAIL_PASSWORD.length : 0}`);
-logger.info(`[EmailService] EMAIL_PASS present: ${!!process.env.EMAIL_PASS}`);
-logger.info(`[EmailService] EMAIL_PASS length: ${process.env.EMAIL_PASS ? process.env.EMAIL_PASS.length : 0}`);
+logger.info(`[EmailService] OAUTH_CLIENT_ID present: ${!!process.env.OAUTH_CLIENT_ID}`);
+logger.info(`[EmailService] OAUTH_CLIENT_SECRET present: ${!!process.env.OAUTH_CLIENT_SECRET}`);
+logger.info(`[EmailService] OAUTH_REFRESH_TOKEN present: ${!!process.env.OAUTH_REFRESH_TOKEN}`);
+logger.info(`[EmailService] OAUTH_EMAIL present: ${!!process.env.OAUTH_EMAIL}`);
 
 const SCHOOL_LOGO_URL = process.env.SCHOOL_LOGO_URL || 'https://topviewpublicschool.com/logo.png';
 const SCHOOL_NAME = 'Top View Public School';
@@ -30,68 +19,126 @@ const SCHOOL_PHONE = '9470525155 / 9199204566';
 const SCHOOL_EMAIL = 'topviewpublicschool@gmail.com';
 const SCHOOL_WEBSITE = 'www.topviewpublicschool.com';
 
-// Configure transporter with detailed logging
-let transporter;
-const emailService = process.env.EMAIL_SERVICE || 'gmail';
-
-logger.info(`[EmailService] Email service: ${emailService}`);
-
-if (emailService === 'resend' && process.env.RESEND_API_KEY) {
-  // Resend configuration
-  const resend = require('resend');
-  logger.info(`[EmailService] Using Resend API`);
-} else if (emailService === 'sendgrid' && process.env.SENDGRID_API_KEY) {
-  transporter = nodemailer.createTransport({
-    host: 'smtp.sendgrid.net',
-    port: 587,
-    secure: false,
-    auth: {
-      user: 'apikey',
-      pass: process.env.SENDGRID_API_KEY
+class EmailService {
+  constructor() {
+    if (process.env.OAUTH_CLIENT_ID && process.env.OAUTH_CLIENT_SECRET && process.env.OAUTH_REFRESH_TOKEN) {
+      this.oauth2Client = new google.auth.OAuth2(
+        process.env.OAUTH_CLIENT_ID,
+        process.env.OAUTH_CLIENT_SECRET,
+        'https://developers.google.com/oauthplayground'
+      );
+      this.oauth2Client.setCredentials({
+        refresh_token: process.env.OAUTH_REFRESH_TOKEN
+      });
+      this.gmail = google.gmail({ version: 'v1', auth: this.oauth2Client });
+      this.useGmailApi = true;
+      logger.info(`[EmailService] Using Gmail API (HTTP)`);
+    } else {
+      this.useGmailApi = false;
+      logger.info(`[EmailService] Gmail API not configured, falling back to SMTP`);
+      this.initSMTP();
     }
-  });
-  logger.info(`[EmailService] Using SendGrid SMTP`);
-} else {
-  // Gmail configuration - try multiple approaches
-  logger.info(`[EmailService] Attempting Gmail configuration...`);
-  logger.info(`[EmailService] Gmail user: ${process.env.EMAIL_USER}`);
-  logger.info(`[EmailService] Gmail pass length: ${(process.env.EMAIL_PASS || process.env.EMAIL_PASSWORD || '').length}`);
-  
-  transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS
-    },
-    connectionTimeout: 30000,
-    greetingTimeout: 30000
-  });
-  
-  logger.info(`[EmailService] Gmail SMTP config: host=smtp.gmail.com, port=465, secure=true`);
+  }
+
+  initSMTP() {
+    logger.info(`[EmailService] Attempting Gmail SMTP configuration...`);
+    logger.info(`[EmailService] Gmail user: ${process.env.EMAIL_USER}`);
+    
+    this.transporter = nodemailer.createTransport({
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS
+      },
+      connectionTimeout: 30000,
+      greetingTimeout: 30000
+    });
+    
+    logger.info(`[EmailService] Gmail SMTP config: host=smtp.gmail.com, port=465, secure=true`);
+    logger.info(`[EmailService] Transporter created, verifying connection...`);
+
+    this.transporter.verify((error, success) => {
+      if (error) {
+        logger.error(`[EmailService] SMTP VERIFICATION FAILED: ${error.message}`);
+      } else {
+        logger.info(`[EmailService] SMTP VERIFICATION SUCCESS`);
+      }
+    });
+  }
+
+  async sendEmailViaGmailApi(to, subject, htmlContent) {
+    try {
+      const mailOptions = {
+        from: `${SCHOOL_NAME} <${process.env.OAUTH_EMAIL}>`,
+        to: to,
+        subject: subject,
+        html: htmlContent,
+        textEncoding: 'base64'
+      };
+
+      const mail = new MailComposer(mailOptions);
+      const message = await mail.compile().build();
+      const rawMessage = Buffer.from(message)
+        .toString('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+
+      const result = await this.gmail.users.messages.send({
+        userId: 'me',
+        requestBody: {
+          raw: rawMessage
+        }
+      });
+
+      logger.info(`[EmailService] ✓ Email sent via Gmail API! Message ID: ${result.data.id}`);
+      return true;
+    } catch (error) {
+      logger.error(`[EmailService] Gmail API Error: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async sendEmailViaSMTP(to, subject, htmlContent) {
+    try {
+      const mailOptions = {
+        from: process.env.EMAIL_FROM || `${SCHOOL_NAME} <${process.env.EMAIL_USER}>`,
+        to,
+        subject,
+        html: htmlContent
+      };
+
+      const info = await this.transporter.sendMail(mailOptions);
+      logger.info(`[EmailService] ✓ Email sent via SMTP! MessageId: ${info.messageId}`);
+      return true;
+    } catch (error) {
+      logger.error(`[EmailService] SMTP Error: ${error.message}`);
+      return false;
+    }
+  }
 }
 
-logger.info(`[EmailService] Using email password: ${(process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS) ? 'YES' : 'NO'}`);
-logger.info(`[EmailService] Transporter created, verifying connection...`);
+const emailServiceInstance = new EmailService();
 
-transporter.verify((error, success) => {
-  if (error) {
-    logger.error(`[EmailService] ════════════════════════════════════════`);
-    logger.error(`[EmailService] SMTP VERIFICATION FAILED`);
-    logger.error(`[EmailService] Error: ${error.message}`);
-    logger.error(`[EmailService] Error Code: ${error.code}`);
-    logger.error(`[EmailService] Error Command: ${error.command}`);
-    logger.error(`[EmailService] ════════════════════════════════════════`);
-  } else {
-    logger.info(`[EmailService] ════════════════════════════════════════`);
-    logger.info(`[EmailService] SMTP VERIFICATION SUCCESS`);
-    logger.info(`[EmailService] Server is ready to take messages`);
-    logger.info(`[EmailService] ════════════════════════════════════════`);
+const sendEmail = async (to, subject, htmlContent) => {
+  try {
+    logger.info(`[EmailService] sendEmail called`);
+    logger.info(`[EmailService] To: "${to}"`);
+    logger.info(`[EmailService] Subject: "${subject}"`);
+    logger.info(`[EmailService] Using: ${emailServiceInstance.useGmailApi ? 'Gmail API (HTTP)' : 'SMTP'}`);
+    
+    if (emailServiceInstance.useGmailApi) {
+      return await emailServiceInstance.sendEmailViaGmailApi(to, subject, htmlContent);
+    } else {
+      return await emailServiceInstance.sendEmailViaSMTP(to, subject, htmlContent);
+    }
+  } catch (error) {
+    logger.error(`[EmailService] ✗ Email sending FAILED: ${error.message}`);
+    return false;
   }
-});
-
-const baseEmailTemplate = (content) => {
+};
   return `
 <!DOCTYPE html>
 <html>
@@ -284,64 +331,6 @@ const baseEmailTemplate = (content) => {
 </body>
 </html>
   `;
-};
-
-const sendEmail = async (to, subject, htmlContent) => {
-  try {
-    logger.info(`[EmailService] ============================================`);
-    logger.info(`[EmailService] sendEmail called`);
-    logger.info(`[EmailService] To: "${to}"`);
-    logger.info(`[EmailService] Subject: "${subject}"`);
-    logger.info(`[EmailService] Email service: ${emailService}`);
-    
-    // Use Resend if configured
-    if (emailService === 'resend' && process.env.RESEND_API_KEY && resend) {
-      logger.info(`[EmailService] Sending via Resend API...`);
-      
-      const data = await resend.emails.send({
-        from: `${SCHOOL_NAME} <onboarding@resend.dev>`,
-        to: [to],
-        subject: subject,
-        html: htmlContent
-      });
-      
-      logger.info(`[EmailService] ✓ Email sent via Resend!`);
-      logger.info(`[EmailService] Resend response: ${JSON.stringify(data)}`);
-      logger.info(`[EmailService] ============================================`);
-      return true;
-    }
-    
-    // Use SMTP (Gmail or SendGrid)
-    const mailOptions = {
-      from: process.env.EMAIL_FROM || `${SCHOOL_NAME} <${process.env.EMAIL_USER}>`,
-      to,
-      subject,
-      html: htmlContent
-    };
-
-    logger.info(`[EmailService] Sending via SMTP...`);
-    const startTime = Date.now();
-    
-    const info = await transporter.sendMail(mailOptions);
-    
-    const duration = Date.now() - startTime;
-    logger.info(`[EmailService] ✓ Email sent successfully!`);
-    logger.info(`[EmailService] Duration: ${duration}ms`);
-    logger.info(`[EmailService] MessageId: ${info.messageId}`);
-    logger.info(`[EmailService] Response: ${JSON.stringify(info.response)}`);
-    logger.info(`[EmailService] ============================================`);
-    return true;
-  } catch (error) {
-    logger.error(`[EmailService] ============================================`);
-    logger.error(`[EmailService] ✗ Email sending FAILED`);
-    logger.error(`[EmailService] To: ${to}`);
-    logger.error(`[EmailService] Error: ${error.message}`);
-    logger.error(`[EmailService] Error Code: ${error.code}`);
-    logger.error(`[EmailService] Error Command: ${error.command}`);
-    logger.error(`[EmailService] Stack: ${error.stack}`);
-    logger.error(`[EmailService] ============================================`);
-    return false;
-  }
 };
 
 const sendAdmissionConfirmation = async (email, name, admissionNumber, className, academicYear) => {
