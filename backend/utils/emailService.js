@@ -19,9 +19,11 @@ const SCHOOL_PHONE = '9470525155 / 9199204566';
 const SCHOOL_EMAIL = 'topviewpublicschool@gmail.com';
 const SCHOOL_WEBSITE = 'www.topviewpublicschool.com';
 
-// Configure transporter - support both Gmail and SendGrid
+// Configure transporter with detailed logging
 let transporter;
 const emailService = process.env.EMAIL_SERVICE || 'gmail';
+
+logger.info(`[EmailService] Email service: ${emailService}`);
 
 if (emailService === 'sendgrid' && process.env.SENDGRID_API_KEY) {
   transporter = nodemailer.createTransport({
@@ -35,25 +37,46 @@ if (emailService === 'sendgrid' && process.env.SENDGRID_API_KEY) {
   });
   logger.info(`[EmailService] Using SendGrid SMTP`);
 } else {
-  // Default to Gmail
+  // Gmail configuration - try multiple approaches
+  logger.info(`[EmailService] Attempting Gmail configuration...`);
+  logger.info(`[EmailService] Gmail user: ${process.env.EMAIL_USER}`);
+  logger.info(`[EmailService] Gmail pass length: ${(process.env.EMAIL_PASS || process.env.EMAIL_PASSWORD || '').length}`);
+  
+  // Try direct SMTP with Gmail
   transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false,
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS
-    }
+    },
+    tls: {
+      rejectUnauthorized: false
+    },
+    connectionTimeout: 30000,
+    greetingTimeout: 30000
   });
-  logger.info(`[EmailService] Using Gmail SMTP`);
+  
+  logger.info(`[EmailService] Gmail SMTP config: host=smtp.gmail.com, port=587, secure=false`);
 }
 
 logger.info(`[EmailService] Using email password: ${(process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS) ? 'YES' : 'NO'}`);
-logger.info(`[EmailService] Transporter created with service: gmail`);
+logger.info(`[EmailService] Transporter created, verifying connection...`);
 
 transporter.verify((error, success) => {
   if (error) {
-    logger.error(`[EmailService] SMTP connection failed: ${error.message}`);
+    logger.error(`[EmailService] ════════════════════════════════════════`);
+    logger.error(`[EmailService] SMTP VERIFICATION FAILED`);
+    logger.error(`[EmailService] Error: ${error.message}`);
+    logger.error(`[EmailService] Error Code: ${error.code}`);
+    logger.error(`[EmailService] Error Command: ${error.command}`);
+    logger.error(`[EmailService] ════════════════════════════════════════`);
   } else {
-    logger.info(`[EmailService] SMTP connection successful`);
+    logger.info(`[EmailService] ════════════════════════════════════════`);
+    logger.info(`[EmailService] SMTP VERIFICATION SUCCESS`);
+    logger.info(`[EmailService] Server is ready to take messages`);
+    logger.info(`[EmailService] ════════════════════════════════════════`);
   }
 });
 
@@ -254,23 +277,40 @@ const baseEmailTemplate = (content) => {
 
 const sendEmail = async (to, subject, htmlContent) => {
   try {
-    logger.info(`[EmailService] sendEmail called with to: "${to}", subject: "${subject}"`);
+    logger.info(`[EmailService] ============================================`);
+    logger.info(`[EmailService] sendEmail called`);
+    logger.info(`[EmailService] To: "${to}"`);
+    logger.info(`[EmailService] Subject: "${subject}"`);
+    logger.info(`[EmailService] Transporter configured: ${emailService}`);
     
     const mailOptions = {
-      from: process.env.EMAIL_FROM || `${SCHOOL_NAME} <topviewpublicschool@gmail.com>`,
+      from: process.env.EMAIL_FROM || `${SCHOOL_NAME} <${process.env.EMAIL_USER}>`,
       to,
       subject,
       html: htmlContent
     };
 
-    logger.info(`[EmailService] Mail options prepared:`, JSON.stringify({ from: mailOptions.from, to: mailOptions.to, subject: mailOptions.subject }));
-
+    logger.info(`[EmailService] Sending email now...`);
+    const startTime = Date.now();
+    
     const info = await transporter.sendMail(mailOptions);
-    logger.info(`[EmailService] Email sent successfully. MessageId: ${info.messageId}, to: ${to}`);
+    
+    const duration = Date.now() - startTime;
+    logger.info(`[EmailService] ✓ Email sent successfully!`);
+    logger.info(`[EmailService] Duration: ${duration}ms`);
+    logger.info(`[EmailService] MessageId: ${info.messageId}`);
+    logger.info(`[EmailService] Response: ${JSON.stringify(info.response)}`);
+    logger.info(`[EmailService] ============================================`);
     return true;
   } catch (error) {
-    logger.error(`[EmailService] Error sending email to ${to}: ${error.message}`);
-    logger.error(`[EmailService] Error stack: ${error.stack}`);
+    logger.error(`[EmailService] ============================================`);
+    logger.error(`[EmailService] ✗ Email sending FAILED`);
+    logger.error(`[EmailService] To: ${to}`);
+    logger.error(`[EmailService] Error: ${error.message}`);
+    logger.error(`[EmailService] Error Code: ${error.code}`);
+    logger.error(`[EmailService] Error Command: ${error.command}`);
+    logger.error(`[EmailService] Stack: ${error.stack}`);
+    logger.error(`[EmailService] ============================================`);
     return false;
   }
 };
