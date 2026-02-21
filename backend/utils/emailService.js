@@ -19,13 +19,32 @@ const SCHOOL_PHONE = '9470525155 / 9199204566';
 const SCHOOL_EMAIL = 'topviewpublicschool@gmail.com';
 const SCHOOL_WEBSITE = 'www.topviewpublicschool.com';
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS
-  }
-});
+// Configure transporter - support both Gmail and SendGrid
+let transporter;
+const emailService = process.env.EMAIL_SERVICE || 'gmail';
+
+if (emailService === 'sendgrid' && process.env.SENDGRID_API_KEY) {
+  transporter = nodemailer.createTransport({
+    host: 'smtp.sendgrid.net',
+    port: 587,
+    secure: false,
+    auth: {
+      user: 'apikey',
+      pass: process.env.SENDGRID_API_KEY
+    }
+  });
+  logger.info(`[EmailService] Using SendGrid SMTP`);
+} else {
+  // Default to Gmail
+  transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS
+    }
+  });
+  logger.info(`[EmailService] Using Gmail SMTP`);
+}
 
 logger.info(`[EmailService] Using email password: ${(process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS) ? 'YES' : 'NO'}`);
 logger.info(`[EmailService] Transporter created with service: gmail`);
