@@ -85,7 +85,7 @@ const About = () => {
         <div className="container">
           <h2>Our Achievements</h2>
           <ul className="achievement-list">
-            <li>CBSE Affiliation since 2000</li>
+            {/*<li>CBSE Affiliation since 2000</li>*/}
             <li>Consistent 95%+ pass rate in board exams</li>
             <li>Winner of National School Excellence Award 2022</li>
             <li>Top rank in state-level science competitions</li>

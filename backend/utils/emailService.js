@@ -16,6 +16,7 @@ const SCHOOL_NAME = 'Top View Public School';
 const SCHOOL_TAGLINE = 'Excellence in Education';
 const SCHOOL_ADDRESS = 'Manju Sadan Basdiha, Near College Gate, Surya Mandir, Panki Palamu, Jharkhand 822122';
 const SCHOOL_PHONE = '9470525155 / 9199204566';
+const SCHOOL_CONTACT = '8797207811 / 7857006144';
 const SCHOOL_EMAIL = 'topviewpublicschool@gmail.com';
 const SCHOOL_WEBSITE = 'www.topviewpublicschool.com';
 

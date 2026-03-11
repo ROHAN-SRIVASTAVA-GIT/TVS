@@ -667,7 +667,7 @@ const Admin = () => {
                   <p><strong>School Name:</strong> Top View Public School</p>
                   <p><strong>Address:</strong> Manju Sadan Basdiha, Panki, Palamu, Jharkhand 822122</p>
                   <p><strong>Email:</strong> topviewpublicschool@gmail.com</p>
-                  <p><strong>Phone:</strong> 9470525155</p>
+                  <p><strong>Phone:</strong> 9470525155 / 9199204566 / 8797207811 / 7857006144</p>
                 </div>
                 <div className="settings-card">
                   <h3>System Statistics</h3>

@@ -142,7 +142,7 @@ npm test         # Run tests
 ## 📞 Support
 
 - **Email**: topviewpublicschool@gmail.com
-- **Phone**: 9470525155
+- **Phone**: 9470525155 | 9199204566 | 8797207811 | 7857006144
 - **Location**: Manju Sadan Basdiha, Panki, Palamu, Jharkhand
 
 ---

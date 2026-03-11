@@ -16,5 +16,6 @@ export const SCHOOL_INFO = {
   name: 'Top View Public School',
   email: 'topviewpublicschool@gmail.com',
   phone: '9470525155 / 9199204566',
+  schoolContact: '8797207811 / 7857006144',
   address: 'Manju Sadan Basdiha, Near College Gate, Surya Mandir, Panki Palamu, Jharkhand 822122'
 };
