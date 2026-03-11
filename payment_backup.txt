@@ -377,7 +377,7 @@ class PaymentController {
     <div class="header">
       <h1>Top View Public School</h1>
       <p>Manju Sadan Basdiha, Panki, Palamu, Jharkhand 822122</p>
-      <p>Email: topviewpublicschool@gmail.com | Phone: 9470525155</p>
+      <p>Email: topviewpublicschool@gmail.com | Phone: 9470525155 | 9199204566 | 8797207811 | 7857006144</p>
     </div>
     <div class="body">
       <div class="section">

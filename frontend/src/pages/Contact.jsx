@@ -56,6 +56,9 @@ const Contact = () => {
             <h3>📞 Phone</h3>
             <p><a href="tel:9470525155">9470525155</a></p>
             <p><a href="tel:9199204566">9199204566</a></p>
+            <p><a href="tel:7857006144">7857006144</a></p>
+            <p><a href="tel:8797207811">8797207811</a></p>
+
           </div>
 
           <div className="info-card">

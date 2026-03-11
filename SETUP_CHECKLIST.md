@@ -316,7 +316,7 @@
 ## 📞 SUPPORT CONTACTS
 
 - **Technical Support**: topviewpublicschool@gmail.com
-- **Phone**: 9470525155
+- **Phone**: 9470525155 | 9199204566 | 8797207811 | 7857006144
 - **Documentation**: See README.md
 - **Setup Guide**: See INSTALLATION_GUIDE.md
 
