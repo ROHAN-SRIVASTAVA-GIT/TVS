@@ -641,6 +641,25 @@ class AdminController {
     }
   }
 
+  static async createGalleryItemBase64(req, res) {
+    try {
+      const { title, category, image } = req.body;
+      
+      if (!title || !image) {
+        return res.status(400).json({ success: false, message: 'Title and image are required' });
+      }
+      
+      const result = await db.query(
+        'INSERT INTO gallery (title, image_url, category) VALUES ($1, $2, $3) RETURNING *',
+        [title, image, category || 'general']
+      );
+      res.status(201).json({ success: true, data: result.rows[0] });
+    } catch (error) {
+      logger.error('Create gallery base64 error:', error);
+      res.status(500).json({ success: false, message: 'Failed to create gallery item' });
+    }
+  }
+
   static async deleteGalleryItem(req, res) {
     try {
       const { id } = req.params;
