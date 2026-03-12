@@ -41,7 +41,9 @@ if (!fs.existsSync('uploads/gallery')) {
 app.set('trust proxy', 1);
 
 // Security Middleware
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 app.use(compression());
 
 // CORS Configuration
@@ -81,8 +83,13 @@ app.use('/api/auth/register', rateLimiter.registerLimiter);
 app.use('/api/payments/verify', rateLimiter.paymentVerifyLimiter);
 app.use('/api/', rateLimiter.globalLimiter);
 
-// Static Files
-app.use('/uploads', express.static('uploads'));
+// Static Files with CORS headers for images
+app.use('/uploads', (req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  next();
+}, express.static('uploads'));
 
 // Health Check
 app.get('/health', (req, res) => {
