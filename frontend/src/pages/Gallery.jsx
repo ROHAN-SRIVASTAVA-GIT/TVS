@@ -29,15 +29,15 @@ const Gallery = () => {
   const fetchGallery = async () => {
     try {
       const response = await axiosInstance.get('/gallery');
-      console.log('Gallery API response:', response.data);
+      console.log('Gallery API response:', response);
       
       let galleryItems = [];
-      if (response.data?.data?.items) {
-        galleryItems = response.data.data.items;
-      } else if (Array.isArray(response.data)) {
+      if (response?.data?.items) {
+        galleryItems = response.data.items;
+      } else if (Array.isArray(response)) {
+        galleryItems = response;
+      } else if (response?.data) {
         galleryItems = response.data;
-      } else if (response.data?.data) {
-        galleryItems = response.data.data;
       }
       
       console.log('Gallery items:', galleryItems);
