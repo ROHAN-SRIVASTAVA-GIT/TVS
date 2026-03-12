@@ -29,8 +29,19 @@ const Gallery = () => {
   const fetchGallery = async () => {
     try {
       const response = await axiosInstance.get('/gallery');
-      const galleryData = response.data;
-      setImages(galleryData?.items || galleryData || []);
+      console.log('Gallery API response:', response.data);
+      
+      let galleryItems = [];
+      if (response.data?.data?.items) {
+        galleryItems = response.data.data.items;
+      } else if (Array.isArray(response.data)) {
+        galleryItems = response.data;
+      } else if (response.data?.data) {
+        galleryItems = response.data.data;
+      }
+      
+      console.log('Gallery items:', galleryItems);
+      setImages(galleryItems);
     } catch (err) {
       console.error('Failed to fetch gallery:', err);
       setImages(demoImages);
