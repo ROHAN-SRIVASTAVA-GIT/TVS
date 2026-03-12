@@ -5,8 +5,9 @@ import './Gallery.css';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 const getImageUrl = (url) => {
-  if (!url) return null;
+  if (!url) return '';
   if (url.startsWith('data:')) return url;
+  if (url.startsWith('http')) return url;
   const baseUrl = API_URL.replace('/api', '');
   return `${baseUrl}${url}`;
 };

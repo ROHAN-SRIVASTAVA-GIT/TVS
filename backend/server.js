@@ -86,10 +86,19 @@ app.use('/api/', rateLimiter.globalLimiter);
 // Static Files with CORS headers for images
 app.use('/uploads', (req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET');
+  res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type');
   next();
-}, express.static('uploads'));
+}, express.static('uploads', {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.jpg') || path.endsWith('.jpeg') || path.endsWith('.png') || path.endsWith('.gif')) {
+      res.set('Cache-Control', 'public, max-age=31536000');
+    }
+  }
+}));
+
+// Serve gallery uploads specifically
+app.use('/uploads/gallery', express.static('uploads/gallery'));
 
 // Health Check
 app.get('/health', (req, res) => {
