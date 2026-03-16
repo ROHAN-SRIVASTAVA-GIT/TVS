@@ -49,12 +49,24 @@ class Gallery {
     
     // Add new columns to existing tables if they don't exist
     try {
+      // Add image_url column for backward compatibility with old uploads
+      await db.query(`ALTER TABLE gallery ADD COLUMN IF NOT EXISTS image_url TEXT`).catch(() => {});
+      
       // Drop BYTEA column if exists and add TEXT column for base64 storage
       await db.query(`ALTER TABLE gallery DROP COLUMN IF EXISTS image_data`).catch(() => {});
       await db.query(`ALTER TABLE gallery ADD COLUMN IF NOT EXISTS image_data TEXT`).catch(() => {});
       await db.query(`ALTER TABLE gallery ADD COLUMN IF NOT EXISTS image_mime_type VARCHAR(100) DEFAULT 'image/jpeg'`).catch(() => {});
       await db.query(`ALTER TABLE gallery ADD COLUMN IF NOT EXISTS image_size INTEGER`).catch(() => {});
-      logger.info('Gallery image columns updated to TEXT');
+      
+      // Check what's in the DB
+      const cols = await db.query(`
+        SELECT column_name, data_type 
+        FROM information_schema.columns 
+        WHERE table_name = 'gallery' AND column_name IN ('image_url', 'image_data', 'image_size')
+      `);
+      logger.info('[DB] Gallery columns:', cols.rows);
+      
+      logger.info('Gallery image columns updated to support both old and new format');
     } catch (error) {
       logger.error('Error updating gallery columns:', error);
     }
@@ -73,22 +85,31 @@ class Gallery {
   }
 
   static async create(galleryData) {
-    const { title, description, imageData, imageMimeType, imageSize, category, uploadedBy } = galleryData;
+    const { title, description, imageUrl, imageData, imageMimeType, imageSize, category, uploadedBy } = galleryData;
 
-    // Convert buffer to base64 string for storage
-    const imageBase64 = imageData ? imageData.toString('base64') : null;
+    // Check if old format (filesystem URL) or new format (buffer)
+    let imageBase64 = null;
+    let storedUrl = imageUrl;
     
-    logger.info(`[DB] Creating image: title=${title}, bufferSize=${imageData?.length}, base64Length=${imageBase64?.length}`);
+    if (imageData) {
+      // New format - convert buffer to base64
+      imageBase64 = imageData.toString('base64');
+      storedUrl = null;
+      logger.info(`[DB] Creating image with base64: title=${title}, bufferSize=${imageData?.length}`);
+    } else if (imageUrl) {
+      // Old format - filesystem path
+      logger.info(`[DB] Creating image with URL: title=${title}, url=${imageUrl}`);
+    }
 
     const query = `
-      INSERT INTO gallery (title, description, image_data, image_mime_type, image_size, category, uploaded_by)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      INSERT INTO gallery (title, description, image_url, image_data, image_mime_type, image_size, category, uploaded_by)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING *
     `;
 
     try {
-      const result = await db.query(query, [title, description, imageBase64, imageMimeType || 'image/jpeg', imageSize, category, uploadedBy]);
-      logger.info(`Gallery item created: ${result.rows[0].id}`);
+      const result = await db.query(query, [title, description, storedUrl, imageBase64, imageMimeType || 'image/jpeg', imageSize, category, uploadedBy]);
+      logger.info(`Gallery item created: ${result.rows[0].id}, hasUrl=${!!storedUrl}, hasData=${!!imageBase64}`);
       return result.rows[0];
     } catch (error) {
       logger.error('Error creating gallery item:', error);
@@ -97,8 +118,9 @@ class Gallery {
   }
 
   static async getAll(limit = 20, offset = 0) {
+    // Include both image_url (for old files) and new image fields
     const query = `
-      SELECT id, title, description, image_mime_type, image_size, category, uploaded_by, featured, sort_order, created_at, updated_at
+      SELECT id, title, description, image_url, image_data, image_mime_type, image_size, category, uploaded_by, featured, sort_order, created_at, updated_at
       FROM gallery
       ORDER BY featured DESC, sort_order ASC, created_at DESC
       LIMIT $1 OFFSET $2
@@ -107,6 +129,11 @@ class Gallery {
     try {
       const result = await db.query(query, [limit, offset]);
       const countResult = await db.query('SELECT COUNT(*) FROM gallery');
+      
+      logger.info(`[DB] getAll: fetched ${result.rows.length} items`);
+      result.rows.forEach(row => {
+        logger.info(`[DB] Image ${row.id}: hasUrl=${!!row.image_url}, hasData=${!!row.image_data}, size=${row.image_size}`);
+      });
       
       return {
         items: result.rows,
@@ -119,11 +146,13 @@ class Gallery {
   }
 
   static async getImageDataById(id) {
-    const query = 'SELECT image_data, image_mime_type, image_size FROM gallery WHERE id = $1';
+    const query = 'SELECT image_url, image_data, image_mime_type, image_size FROM gallery WHERE id = $1';
     
     try {
       const result = await db.query(query, [id]);
       const row = result.rows[0];
+      
+      logger.info(`[DB] getImageDataById: id=${id}, hasUrl=${!!row?.image_url}, hasData=${!!row?.image_data}`);
       
       // Convert base64 back to buffer if stored as base64
       if (row && row.image_data && typeof row.image_data === 'string') {

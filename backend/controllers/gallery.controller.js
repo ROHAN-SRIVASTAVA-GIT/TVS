@@ -69,6 +69,20 @@ class GalleryController {
       
       const imageData = await Gallery.getImageDataById(id);
 
+      logger.info(`[Stream Image] DB result:`, {
+        id,
+        hasUrl: !!imageData?.image_url,
+        hasData: !!imageData?.image_data,
+        size: imageData?.image_size
+      });
+
+      // Check old format - filesystem URL
+      if (imageData?.image_url) {
+        logger.info(`[Stream Image] Redirecting to old file: ${imageData.image_url}`);
+        return res.redirect(imageData.image_url);
+      }
+
+      // Check new format - database
       if (!imageData || !imageData.image_data) {
         logger.warn(`[Stream Image] Not found: ${id}`);
         return res.status(404).json({
