@@ -306,9 +306,7 @@ const Admin = () => {
             if (formData.image) {
               formDataObj.append('image', formData.image);
             }
-            await axiosInstance.put(`/admin/gallery/${selectedItem.id}`, formDataObj, {
-              headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            await axiosInstance.put(`/admin/gallery/${selectedItem.id}`, formDataObj);
           } else {
             const formDataObj = new FormData();
             formDataObj.append('title', formData.title);
@@ -316,9 +314,7 @@ const Admin = () => {
             if (formData.image) {
               formDataObj.append('image', formData.image);
             }
-            await axiosInstance.post(`/admin/gallery`, formDataObj, {
-              headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            await axiosInstance.post(`/admin/gallery`, formDataObj);
           }
           break;
         case 'videos':
@@ -343,9 +339,7 @@ const Admin = () => {
             
             console.log('[Admin] Sending video upload request...', { size: formData.video.size });
             try {
-              const response = await axiosInstance.post(`/gallery/video/upload`, videoFormData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-              });
+              const response = await axiosInstance.post(`/gallery/video/upload`, videoFormData);
               console.log('[Admin] Video upload success:', response);
             } catch (uploadErr) {
               console.error('[Admin] Video upload failed:', uploadErr);

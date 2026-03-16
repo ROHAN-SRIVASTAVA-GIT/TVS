@@ -4,10 +4,7 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 const axiosInstance = axios.create({
   baseURL: API_URL,
-  timeout: 120000, // 2 minutes for video uploads
-  headers: {
-    'Content-Type': 'application/json',
-  }
+  timeout: 120000
 });
 
 // Add token to requests
@@ -16,6 +13,9 @@ axiosInstance.interceptors.request.use(
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    if (!(config.data instanceof FormData)) {
+      config.headers['Content-Type'] = 'application/json';
     }
     console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`, {
       timeout: config.timeout,
