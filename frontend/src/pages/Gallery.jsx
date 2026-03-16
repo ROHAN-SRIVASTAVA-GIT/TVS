@@ -5,11 +5,20 @@ import './Gallery.css';
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 const getImageStreamUrl = (imageId) => {
+  if (!imageId) return '';
+  // If it's already a data URL or external URL
+  if (String(imageId).startsWith('data:') || String(imageId).startsWith('http')) {
+    return imageId;
+  }
   const baseUrl = API_URL.replace('/api', '');
   return `${baseUrl}/gallery/${imageId}/stream`;
 };
 
 const getVideoStreamUrl = (videoId) => {
+  if (!videoId) return '';
+  if (String(videoId).startsWith('data:') || String(videoId).startsWith('http')) {
+    return videoId;
+  }
   const baseUrl = API_URL.replace('/api', '');
   return `${baseUrl}/gallery/video/${videoId}/stream`;
 };
@@ -136,7 +145,7 @@ const Gallery = () => {
                     <div className="video-thumbnail">
                       {video.thumbnail ? (
                         <img 
-                          src={getMediaUrl(video.thumbnail)} 
+                          src={getImageStreamUrl(video.thumbnail)} 
                           alt={video.title}
                           loading="lazy"
                         />
