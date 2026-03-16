@@ -10,8 +10,8 @@ const getImageStreamUrl = (imageId) => {
   if (String(imageId).startsWith('data:') || String(imageId).startsWith('http')) {
     return imageId;
   }
-  const baseUrl = API_URL.replace('/api', '');
-  return `${baseUrl}/gallery/${imageId}/stream`;
+  // Use full API URL with /api prefix
+  return `${API_URL}/gallery/${imageId}/stream`;
 };
 
 const getVideoStreamUrl = (videoId) => {
@@ -19,8 +19,8 @@ const getVideoStreamUrl = (videoId) => {
   if (String(videoId).startsWith('data:') || String(videoId).startsWith('http')) {
     return videoId;
   }
-  const baseUrl = API_URL.replace('/api', '');
-  const url = `${baseUrl}/gallery/video/${videoId}/stream`;
+  // Use full API URL with /api prefix
+  const url = `${API_URL}/gallery/video/${videoId}/stream`;
   console.log('[Gallery] Video stream URL:', url);
   return url;
 };

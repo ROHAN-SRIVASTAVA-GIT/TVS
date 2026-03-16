@@ -8,8 +8,8 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const getImageUrl = (imageId) => {
   if (!imageId) return null;
   if (String(imageId).startsWith('data:')) return imageId;
-  const baseUrl = API_URL.replace('/api', '');
-  return `${baseUrl}/gallery/${imageId}/stream`;
+  // Use full API URL with /api prefix for streaming from DB
+  return `${API_URL}/gallery/${imageId}/stream`;
 };
 
 const Admin = () => {
