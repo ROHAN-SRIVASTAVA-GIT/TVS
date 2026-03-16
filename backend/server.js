@@ -37,6 +37,11 @@ if (!fs.existsSync('uploads/gallery')) {
   logger.info('Gallery uploads directory created');
 }
 
+if (!fs.existsSync('uploads/videos')) {
+  fs.mkdirSync('uploads/videos', { recursive: true });
+  logger.info('Videos uploads directory created');
+}
+
 // Trust proxy
 app.set('trust proxy', 1);
 
@@ -99,6 +104,7 @@ app.use('/uploads', (req, res, next) => {
 
 // Serve gallery uploads specifically
 app.use('/uploads/gallery', express.static('uploads/gallery'));
+app.use('/uploads/videos', express.static('uploads/videos'));
 
 // Health Check
 app.get('/health', (req, res) => {

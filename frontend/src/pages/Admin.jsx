@@ -29,6 +29,7 @@ const Admin = () => {
   const [notices, setNotices] = useState([]);
   const [feeStructures, setFeeStructures] = useState([]);
   const [gallery, setGallery] = useState([]);
+  const [videos, setVideos] = useState([]);
   const [students, setStudents] = useState([]);
   
   // Pagination & Filters
@@ -72,6 +73,7 @@ const Admin = () => {
       case 'notices': fetchNotices(offset); break;
       case 'fees': fetchFeeStructures(); break;
       case 'gallery': fetchGallery(); break;
+      case 'videos': fetchVideos(); break;
       case 'students': fetchStudents(offset); break;
       default: break;
     }
@@ -155,6 +157,19 @@ const Admin = () => {
     setLoading(false);
   };
 
+  const fetchVideos = async () => {
+    setLoading(true);
+    try {
+      const res = await axiosInstance.get('/gallery/video');
+      const videoData = res.data?.items || res.data || [];
+      setVideos(Array.isArray(videoData) ? videoData : []);
+    } catch (err) { 
+      console.error('Failed to fetch videos:', err);
+      setVideos([]);
+    }
+    setLoading(false);
+  };
+
   const fetchStudents = async (offset) => {
     setLoading(true);
     try {
@@ -218,6 +233,9 @@ const Admin = () => {
         return { name: '', admission_number: '', class_name: '', father_name: '', mother_name: '', phone: '', email: '', address: '', dob: '', gender: '' };
       case 'gallery':
         return { title: '', category: 'general' };
+      case 'video':
+      case 'videos':
+        return { title: '', description: '', category: 'general' };
       case 'user':
         return { firstName: '', lastName: '', email: '', phone: '', role: 'parent', status: 'active' };
       default:
@@ -279,6 +297,28 @@ const Admin = () => {
               formDataObj.append('image', formData.image);
             }
             await axiosInstance.post(`/admin/gallery`, formDataObj, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            });
+          }
+          break;
+        case 'videos':
+          if (!formData.title) {
+            alert('Please enter a title');
+            return;
+          }
+          if (modalMode === 'edit') {
+            await axiosInstance.put(`/gallery/video/${selectedItem.id}`, formData);
+          } else {
+            if (!formData.video) {
+              alert('Please select a video file');
+              return;
+            }
+            const videoFormData = new FormData();
+            videoFormData.append('title', formData.title);
+            videoFormData.append('description', formData.description || '');
+            videoFormData.append('category', formData.category || 'general');
+            videoFormData.append('video', formData.video);
+            await axiosInstance.post(`/gallery/video/upload`, videoFormData, {
               headers: { 'Content-Type': 'multipart/form-data' }
             });
           }
@@ -361,6 +401,9 @@ const Admin = () => {
             </button>
             <button className={activeTab === 'gallery' ? 'active' : ''} onClick={() => setActiveTab('gallery')}>
               🖼️ Gallery
+            </button>
+            <button className={activeTab === 'videos' ? 'active' : ''} onClick={() => setActiveTab('videos')}>
+              🎬 Videos
             </button>
             <button className={activeTab === 'settings' ? 'active' : ''} onClick={() => setActiveTab('settings')}>
               ⚙️ Settings
@@ -658,6 +701,45 @@ const Admin = () => {
             />
           )}
 
+          {activeTab === 'videos' && (
+            <div className="section-header">
+              <h2>Video Gallery</h2>
+              <button className="add-btn" onClick={() => openCreateForm('video')}>+ Upload Video</button>
+            </div>
+          )}
+          {activeTab === 'videos' && (
+            <DataTable
+              data={videos}
+              columns={['ID', 'Preview', 'Title', 'Category', 'Date', 'Actions']}
+              renderRow={(v) => (
+                <>
+                  <td>{v.id}</td>
+                  <td>
+                    {v.thumbnail ? (
+                      <img 
+                        src={getImageUrl(v.thumbnail)} 
+                        alt={v.title}
+                        style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '5px' }}
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                    ) : (
+                      <div style={{ width: '50px', height: '50px', background: '#667eea', borderRadius: '5px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '20px' }}>▶</div>
+                    )}
+                  </td>
+                  <td>{v.title}</td>
+                  <td>{v.category || '-'}</td>
+                  <td>{new Date(v.created_at).toLocaleDateString()}</td>
+                  <td>
+                    <button className="action-btn view" onClick={() => viewDetails(v)}>View</button>
+                    <button className="action-btn reject" onClick={() => deleteItem('gallery/video', v.id)} disabled={actionLoading}>Delete</button>
+                  </td>
+                </>
+              )}
+              loading={loading}
+              onView={viewDetails}
+            />
+          )}
+
           {activeTab === 'settings' && (
             <div className="settings-section">
               <h2>Admin Settings</h2>
@@ -700,6 +782,7 @@ const Admin = () => {
                  activeTab === 'fees' ? 'Fee Structure' : 
                  activeTab === 'students' ? 'Student' : 
                  activeTab === 'gallery' ? 'Gallery Item' : 
+                 activeTab === 'videos' ? 'Video' : 
                  activeTab === 'users' ? 'User' : 'Details'}
               </h3>
               <button className="close-btn" onClick={() => setShowModal(false)}>×</button>
@@ -991,7 +1074,49 @@ const Admin = () => {
                       <div className="form-group">
                         <label>Image {modalMode === 'create' ? '*' : ''}</label>
                         <input type="file" accept="image/*" onChange={e => setFormData({...formData, image: e.target.files[0]})} />
-                        {formData.image_url && <img src={formData.image_url} alt="Current" style={{maxWidth: '100px', marginTop: '10px'}} />}
+                        {formData.image_url && <img src={getImageUrl(formData.image_url)} alt="Current" style={{maxWidth: '100px', marginTop: '10px'}} />}
+                      </div>
+                    </>
+                  )}
+
+                  {/* Video Form */}
+                  {activeTab === 'videos' && (
+                    <>
+                      <div className="form-group">
+                        <label>Title *</label>
+                        <input type="text" value={formData.title || ''} onChange={e => setFormData({...formData, title: e.target.value})} required />
+                      </div>
+                      <div className="form-group">
+                        <label>Description</label>
+                        <textarea value={formData.description || ''} onChange={e => setFormData({...formData, description: e.target.value})} rows="3" />
+                      </div>
+                      <div className="form-group">
+                        <label>Category</label>
+                        <select value={formData.category || 'general'} onChange={e => setFormData({...formData, category: e.target.value})}>
+                          <option value="general">General</option>
+                          <option value="events">Events</option>
+                          <option value="sports">Sports</option>
+                          <option value="cultural">Cultural</option>
+                          <option value="academic">Academic</option>
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label>Video {modalMode === 'create' ? '*' : ''}</label>
+                        <input 
+                          type="file" 
+                          accept="video/mp4,video/mpeg,video/quicktime,video/webm" 
+                          onChange={e => setFormData({...formData, video: e.target.files[0]})} 
+                        />
+                        {formData.video_url && (
+                          <video 
+                            src={getImageUrl(formData.video_url)} 
+                            style={{maxWidth: '200px', marginTop: '10px', borderRadius: '5px'}} 
+                            controls 
+                          />
+                        )}
+                        {modalMode === 'create' && (
+                          <p className="form-info">Supported formats: MP4, MPEG, MOV, WebM (Max 100MB)</p>
+                        )}
                       </div>
                     </>
                   )}

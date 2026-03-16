@@ -27,11 +27,33 @@ const upload = multer({
   }
 });
 
+// Use memory storage for videos - stored in DB
+const videoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 104857600 },
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = ['video/mp4', 'video/mpeg', 'video/quicktime', 'video/webm'];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only MP4, MPEG, MOV, WebM allowed'));
+    }
+  }
+});
+
 router.post('/upload', auth, authorize('admin'), upload.single('image'), GalleryController.uploadImage);
 router.get('/', GalleryController.getGallery);
 router.get('/category/:category', GalleryController.getByCategory);
 router.get('/:id', GalleryController.getImageById);
 router.put('/:id', auth, authorize('admin'), GalleryController.updateImage);
 router.delete('/:id', auth, authorize('admin'), GalleryController.deleteImage);
+
+// Video routes - store in database
+router.post('/video/upload', auth, authorize('admin'), videoUpload.single('video'), GalleryController.uploadVideo);
+router.get('/video', GalleryController.getVideos);
+router.get('/video/:id', GalleryController.getVideoById);
+router.get('/video/:id/stream', GalleryController.streamVideo);
+router.put('/video/:id', auth, authorize('admin'), GalleryController.updateVideo);
+router.delete('/video/:id', auth, authorize('admin'), GalleryController.deleteVideo);
 
 module.exports = router;

@@ -157,6 +157,203 @@ class GalleryController {
       });
     }
   }
+
+  // Video methods - store in database
+  static async uploadVideo(req, res) {
+    try {
+      const { title, description, category } = req.body;
+
+      if (!title || !req.file) {
+        return res.status(400).json({
+          success: false,
+          message: 'Title and video file are required'
+        });
+      }
+
+      // Read file buffer
+      const videoBuffer = req.file.buffer;
+      const videoMimeType = req.file.mimetype || 'video/mp4';
+      const videoSize = req.file.size;
+
+      const item = await Gallery.createVideo({
+        title,
+        description,
+        videoBuffer,
+        videoMimeType,
+        videoSize,
+        category,
+        uploadedBy: req.userId
+      });
+
+      logger.info(`Gallery video uploaded: ${item.id} (${videoSize} bytes)`);
+
+      res.status(201).json({
+        success: true,
+        message: 'Video uploaded successfully',
+        data: {
+          id: item.id,
+          title: item.title,
+          description: item.description,
+          video_mime_type: item.video_mime_type,
+          video_size: item.video_size,
+          thumbnail: item.thumbnail,
+          category: item.category,
+          created_at: item.created_at
+        }
+      });
+    } catch (error) {
+      logger.error('Upload video error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to upload video'
+      });
+    }
+  }
+
+  static async streamVideo(req, res) {
+    try {
+      const { id } = req.params;
+      
+      const videoData = await Gallery.getVideoDataById(id);
+
+      if (!videoData || !videoData.video_data) {
+        return res.status(404).json({
+          success: false,
+          message: 'Video not found'
+        });
+      }
+
+      // Set headers for streaming
+      const mimeType = videoData.video_mime_type || 'video/mp4';
+      const fileSize = videoData.video_size || videoData.video_data.length;
+
+      res.set({
+        'Content-Type': mimeType,
+        'Content-Length': fileSize,
+        'Accept-Ranges': 'bytes',
+        'Content-Disposition': `inline; filename="video-${id}.mp4"`
+      });
+
+      // Send video data
+      res.send(videoData.video_data);
+    } catch (error) {
+      logger.error('Stream video error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to stream video'
+      });
+    }
+  }
+
+  static async getVideos(req, res) {
+    try {
+      const limit = req.query.limit || 20;
+      const offset = req.query.offset || 0;
+
+      const result = await Gallery.getAllVideos(limit, offset);
+
+      res.status(200).json({
+        success: true,
+        data: result
+      });
+    } catch (error) {
+      logger.error('Fetch videos error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch videos'
+      });
+    }
+  }
+
+  static async getVideoById(req, res) {
+    try {
+      const { id } = req.params;
+      const item = await Gallery.findVideoById(id);
+
+      if (!item) {
+        return res.status(404).json({
+          success: false,
+          message: 'Video not found'
+        });
+      }
+
+      // Return video info without binary data
+      res.status(200).json({
+        success: true,
+        data: {
+          id: item.id,
+          title: item.title,
+          description: item.description,
+          video_mime_type: item.video_mime_type,
+          video_size: item.video_size,
+          thumbnail: item.thumbnail,
+          category: item.category,
+          created_at: item.created_at
+        }
+      });
+    } catch (error) {
+      logger.error('Fetch video error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch video'
+      });
+    }
+  }
+
+  static async updateVideo(req, res) {
+    try {
+      const { id } = req.params;
+      const item = await Gallery.findVideoById(id);
+
+      if (!item) {
+        return res.status(404).json({
+          success: false,
+          message: 'Video not found'
+        });
+      }
+
+      const updated = await Gallery.updateVideo(id, req.body);
+
+      res.status(200).json({
+        success: true,
+        message: 'Video updated successfully',
+        data: updated
+      });
+    } catch (error) {
+      logger.error('Update video error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update video'
+      });
+    }
+  }
+
+  static async deleteVideo(req, res) {
+    try {
+      const { id } = req.params;
+      const item = await Gallery.findVideoById(id);
+
+      if (!item) {
+        return res.status(404).json({
+          success: false,
+          message: 'Video not found'
+        });
+      }
+
+      await Gallery.deleteVideo(id);
+
+      res.status(200).json({
+        success: true,
+        message: 'Video deleted successfully'
+      });
+    } catch (error) {
+      logger.error('Delete video error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to delete video'
+      });
+    }
+  }
 }
 
 module.exports = GalleryController;
