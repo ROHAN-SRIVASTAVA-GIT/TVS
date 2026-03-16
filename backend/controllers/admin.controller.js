@@ -679,6 +679,53 @@ class AdminController {
     }
   }
 
+  static async updateGalleryItem(req, res) {
+    try {
+      const { id } = req.params;
+      const { title, category } = req.body;
+      
+      if (!title) {
+        return res.status(400).json({ success: false, message: 'Title is required' });
+      }
+      
+      let query, params;
+      
+      if (req.file) {
+        const imageBuffer = req.file.buffer;
+        const imageMimeType = req.file.mimetype || 'image/jpeg';
+        const imageSize = req.file.size;
+        const imageBase64 = imageBuffer.toString('base64');
+        
+        query = `
+          UPDATE gallery 
+          SET title = $1, category = $2, image_data = $3, image_mime_type = $4, image_size = $5, updated_at = CURRENT_TIMESTAMP
+          WHERE id = $6
+          RETURNING *
+        `;
+        params = [title, category || 'general', imageBase64, imageMimeType, imageSize, id];
+      } else {
+        query = `
+          UPDATE gallery 
+          SET title = $1, category = $2, updated_at = CURRENT_TIMESTAMP
+          WHERE id = $3
+          RETURNING *
+        `;
+        params = [title, category || 'general', id];
+      }
+      
+      const result = await db.query(query, params);
+      
+      if (result.rows.length === 0) {
+        return res.status(404).json({ success: false, message: 'Gallery item not found' });
+      }
+      
+      res.status(200).json({ success: true, data: result.rows[0] });
+    } catch (error) {
+      logger.error('Update gallery error:', error);
+      res.status(500).json({ success: false, message: 'Failed to update gallery item' });
+    }
+  }
+
   // Student Management
   static async getAllStudents(req, res) {
     try {

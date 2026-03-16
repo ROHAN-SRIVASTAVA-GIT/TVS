@@ -5,11 +5,22 @@ import './Admin.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
-const getImageUrl = (imageId) => {
-  if (!imageId) return null;
-  if (String(imageId).startsWith('data:')) return imageId;
-  // Use full API URL with /api prefix for streaming from DB
-  return `${API_URL}/gallery/${imageId}/stream`;
+const getImageUrl = (image) => {
+  if (!image) return null;
+  if (typeof image === 'string') {
+    if (image.startsWith('data:') || image.startsWith('http')) return image;
+    return `${API_URL}/gallery/${image}/stream`;
+  }
+  if (image.image_data) {
+    return `data:${image.image_mime_type || 'image/jpeg'};base64,${image.image_data}`;
+  }
+  if (image.image_url) {
+    return image.image_url;
+  }
+  if (image.id) {
+    return `${API_URL}/gallery/${image.id}/stream`;
+  }
+  return null;
 };
 
 const Admin = () => {
@@ -289,7 +300,15 @@ const Admin = () => {
             return;
           }
           if (modalMode === 'edit') {
-            await axiosInstance.put(`/admin/gallery/${selectedItem.id}`, formData);
+            const formDataObj = new FormData();
+            formDataObj.append('title', formData.title);
+            formDataObj.append('category', formData.category || 'general');
+            if (formData.image) {
+              formDataObj.append('image', formData.image);
+            }
+            await axiosInstance.put(`/admin/gallery/${selectedItem.id}`, formDataObj, {
+              headers: { 'Content-Type': 'multipart/form-data' }
+            });
           } else {
             const formDataObj = new FormData();
             formDataObj.append('title', formData.title);
@@ -703,6 +722,7 @@ const Admin = () => {
                   <td>{new Date(g.created_at).toLocaleDateString()}</td>
                   <td>
                     <button className="action-btn view" onClick={() => viewDetails(g)}>View</button>
+                    <button className="action-btn edit" onClick={() => openEditForm(g, 'gallery')}>Edit</button>
                     <button className="action-btn reject" onClick={() => deleteItem('gallery', g.id)} disabled={actionLoading}>Delete</button>
                   </td>
                 </>
@@ -1085,7 +1105,12 @@ const Admin = () => {
                       <div className="form-group">
                         <label>Image {modalMode === 'create' ? '*' : ''}</label>
                         <input type="file" accept="image/*" onChange={e => setFormData({...formData, image: e.target.files[0]})} />
-                        {formData.image_url && <img src={getImageUrl(formData.image_url)} alt="Current" style={{maxWidth: '100px', marginTop: '10px'}} />}
+                        {(formData.image_url || formData.image_data) && (
+                          <img src={getImageUrl(formData)} alt="Current" style={{maxWidth: '100px', marginTop: '10px'}} />
+                        )}
+                        {formData.image && (
+                          <img src={URL.createObjectURL(formData.image)} alt="Preview" style={{maxWidth: '100px', marginTop: '10px', marginLeft: '10px'}} />
+                        )}
                       </div>
                     </>
                   )}

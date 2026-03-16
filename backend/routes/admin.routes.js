@@ -67,6 +67,7 @@ router.delete('/fee-structures/:id', auth, authorize('admin'), AdminController.d
 router.get('/gallery', auth, authorize('admin'), AdminController.getAllGallery);
 router.post('/gallery', auth, authorize('admin'), upload.single('image'), AdminController.createGalleryItem);
 router.post('/gallery/base64', auth, authorize('admin'), AdminController.createGalleryItemBase64);
+router.put('/gallery/:id', auth, authorize('admin'), upload.single('image'), AdminController.updateGalleryItem);
 router.delete('/gallery/:id', auth, authorize('admin'), AdminController.deleteGalleryItem);
 
 // Students
