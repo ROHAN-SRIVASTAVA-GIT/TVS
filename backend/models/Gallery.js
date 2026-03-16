@@ -247,6 +247,7 @@ class Gallery {
     
     try {
       const result = await db.query(query, [id]);
+      logger.info(`[DB] getVideoDataById:`, { id, rowCount: result.rowCount, hasData: !!result.rows[0]?.video_data });
       return result.rows[0];
     } catch (error) {
       logger.error('Error fetching video data:', error);

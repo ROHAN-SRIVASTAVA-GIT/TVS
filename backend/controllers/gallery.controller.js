@@ -253,7 +253,7 @@ class GalleryController {
       const videoMimeType = req.file.mimetype || 'video/mp4';
       const videoSize = req.file.size;
 
-      logger.info(`[Video Upload] Saving to DB: ${title}, size: ${videoSize} bytes`);
+      logger.info(`[Video Upload] Saving to DB: ${title}, buffer size: ${videoBuffer.length}, reported size: ${videoSize}`);
 
       const item = await Gallery.createVideo({
         title,
@@ -265,7 +265,7 @@ class GalleryController {
         uploadedBy: req.userId
       });
 
-      logger.info(`[Video Upload] Success: ID ${item.id}, size: ${videoSize} bytes`);
+      logger.info(`[Video Upload] Success: ID ${item.id}, stored size: ${item.video_size}`);
 
       res.status(201).json({
         success: true,
@@ -293,10 +293,21 @@ class GalleryController {
   static async streamVideo(req, res) {
     try {
       const { id } = req.params;
+      logger.info(`[Stream Video] Request for ID: ${id}`);
       
       const videoData = await Gallery.getVideoDataById(id);
+      
+      logger.info(`[Stream Video] DB result:`, {
+        id,
+        hasData: !!videoData,
+        hasVideoData: !!videoData?.video_data,
+        videoDataSize: videoData?.video_data?.length,
+        videoSize: videoData?.video_size,
+        mimeType: videoData?.video_mime_type
+      });
 
       if (!videoData || !videoData.video_data) {
+        logger.warn(`[Stream Video] Video data not found for ID: ${id}`);
         return res.status(404).json({
           success: false,
           message: 'Video not found'
@@ -306,6 +317,8 @@ class GalleryController {
       // Set headers for streaming
       const mimeType = videoData.video_mime_type || 'video/mp4';
       const fileSize = videoData.video_size || videoData.video_data.length;
+
+      logger.info(`[Stream Video] Streaming: size=${fileSize}, type=${mimeType}`);
 
       res.set({
         'Content-Type': mimeType,
@@ -317,7 +330,7 @@ class GalleryController {
       // Send video data
       res.send(videoData.video_data);
     } catch (error) {
-      logger.error('Stream video error:', error);
+      logger.error('[Stream Video] Error:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to stream video'
