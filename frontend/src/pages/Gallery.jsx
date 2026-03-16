@@ -20,7 +20,9 @@ const getVideoStreamUrl = (videoId) => {
     return videoId;
   }
   const baseUrl = API_URL.replace('/api', '');
-  return `${baseUrl}/gallery/video/${videoId}/stream`;
+  const url = `${baseUrl}/gallery/video/${videoId}/stream`;
+  console.log('[Gallery] Video stream URL:', url);
+  return url;
 };
 
 const Gallery = () => {
@@ -56,17 +58,20 @@ const Gallery = () => {
   const fetchVideos = async () => {
     try {
       const response = await axiosInstance.get('/gallery/video');
+      console.log('[Gallery] Videos API response:', response);
       let videoItems = [];
+      // Response is unwrapped by axios interceptor - response.data is already the API response body
       if (response?.data?.items) {
         videoItems = response.data.items;
+      } else if (response?.items) {
+        videoItems = response.items;
       } else if (Array.isArray(response)) {
         videoItems = response;
-      } else if (response?.data) {
-        videoItems = Array.isArray(response.data) ? response.data : [];
       }
+      console.log('[Gallery] Parsed videos:', videoItems, 'IDs:', videoItems.map(v => v.id));
       setVideos(videoItems);
     } catch (err) {
-      console.error('Failed to fetch videos:', err);
+      console.error('[Gallery] Failed to fetch videos:', err);
     } finally {
       setLoading(false);
     }
@@ -140,7 +145,10 @@ const Gallery = () => {
                   <div
                     key={`vid-${video.id}`}
                     className="video-gallery-item"
-                    onClick={() => setSelectedVideo(video)}
+                    onClick={() => {
+                      console.log('[Gallery] Video clicked:', video);
+                      setSelectedVideo(video);
+                    }}
                   >
                     <div className="video-thumbnail">
                       {video.thumbnail ? (
@@ -203,6 +211,8 @@ const Gallery = () => {
               autoPlay
               className="video-player"
               preload="metadata"
+              onCanPlay={() => console.log('[Gallery] Video can play')}
+              onError={(e) => console.error('[Gallery] Video error:', e)}
             >
               <source src={getVideoStreamUrl(selectedVideo.id)} type={selectedVideo.video_mime_type || "video/mp4"} />
               Your browser does not support the video tag.
