@@ -118,10 +118,8 @@ class Gallery {
   }
 
   static async getAll(limit = 20, offset = 0) {
-    // Include both image_url (for old files) and new image fields
     const query = `
-      SELECT id, title, description, image_url, image_data, image_mime_type, image_size, category, uploaded_by, featured, sort_order, created_at, updated_at
-      FROM gallery
+      SELECT * FROM gallery
       ORDER BY featured DESC, sort_order ASC, created_at DESC
       LIMIT $1 OFFSET $2
     `;
