@@ -4,14 +4,43 @@ import './Gallery.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
-const getImageStreamUrl = (imageId) => {
-  if (!imageId) return '';
-  // If it's already a data URL or external URL
-  if (String(imageId).startsWith('data:') || String(imageId).startsWith('http')) {
-    return imageId;
+const getImageStreamUrl = (image) => {
+  if (!image) return '';
+  
+  // If it's a string (data URL, external URL, or just an ID)
+  if (typeof image === 'string') {
+    // If it's a data URL or external URL
+    if (image.startsWith('data:') || image.startsWith('http')) {
+      return image;
+    }
+    // If it's just an ID (numeric string), use stream endpoint
+    if (!isNaN(parseInt(image))) {
+      return `${API_URL}/gallery/${image}/stream`;
+    }
+    return '';
   }
-  // Use full API URL with /api prefix
-  return `${API_URL}/gallery/${imageId}/stream`;
+  
+  // If it's a number (ID), use stream endpoint
+  if (typeof image === 'number') {
+    return `${API_URL}/gallery/${image}/stream`;
+  }
+  
+  // If image object has image_data (base64 stored), construct data URL
+  if (image.image_data) {
+    return `data:${image.image_mime_type || 'image/jpeg'};base64,${image.image_data}`;
+  }
+  
+  // If image object has old image_url
+  if (image.image_url) {
+    return image.image_url;
+  }
+  
+  // If image object has id, use stream endpoint
+  if (image.id) {
+    return `${API_URL}/gallery/${image.id}/stream`;
+  }
+  
+  return '';
 };
 
 const getVideoStreamUrl = (videoId) => {
@@ -52,11 +81,11 @@ const Gallery = () => {
       const response = await axiosInstance.get('/gallery');
       let galleryItems = [];
       if (response?.data?.items) {
-        galleryItems = response.data.items.filter(item => item.image_url);
+        galleryItems = response.data.items.filter(item => item.image_url || item.image_data);
       } else if (Array.isArray(response)) {
-        galleryItems = response.filter(item => item.image_url);
+        galleryItems = response.filter(item => item.image_url || item.image_data);
       } else if (response?.data) {
-        galleryItems = Array.isArray(response.data) ? response.data.filter(item => item.image_url) : [];
+        galleryItems = Array.isArray(response.data) ? response.data.filter(item => item.image_url || item.image_data) : [];
       }
       setImages(galleryItems);
     } catch (err) {
@@ -132,7 +161,7 @@ const Gallery = () => {
                     onClick={() => setSelectedImage(image)}
                   >
                     <img 
-                      src={getImageStreamUrl(image.id)} 
+                      src={getImageStreamUrl(image)} 
                       alt={image.title} 
                       loading="lazy"
                       onError={(e) => { e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23ddd" width="400" height="300"/%3E%3Ctext x="50%25" y="50%25" font-size="20" fill="%23999" text-anchor="middle" dy=".3em"%3ENo Image%3C/text%3E%3C/svg%3E'; }} 
@@ -162,7 +191,7 @@ const Gallery = () => {
                     <div className="video-thumbnail">
                       {video.thumbnail ? (
                         <img 
-                          src={getImageStreamUrl(video.thumbnail)} 
+                                      src={getImageStreamUrl(video.thumbnail)} 
                           alt={video.title}
                           loading="lazy"
                         />
@@ -199,7 +228,7 @@ const Gallery = () => {
           <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
             <span className="close" onClick={() => setSelectedImage(null)}>×</span>
             <img 
-              src={getImageStreamUrl(selectedImage.id)} 
+              src={getImageStreamUrl(selectedImage)} 
               alt={selectedImage.title} 
               onError={(e) => { e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23ddd" width="400" height="300"/%3E%3Ctext x="50%25" y="50%25" font-size="20" fill="%23999" text-anchor="middle" dy=".3em"%3ENo Image%3C/text%3E%3C/svg%3E'; }} 
             />

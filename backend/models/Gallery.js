@@ -146,13 +146,14 @@ class Gallery {
   }
 
   static async getImageDataById(id) {
-    const query = 'SELECT image_url, image_data, image_mime_type, image_size FROM gallery WHERE id = $1';
+    const query = 'SELECT * FROM gallery WHERE id = $1';
     
     try {
       const result = await db.query(query, [id]);
       const row = result.rows[0];
       
-      logger.info(`[DB] getImageDataById: id=${id}, hasUrl=${!!row?.image_url}, hasData=${!!row?.image_data}`);
+      logger.info('[DB] getImageDataById row:', row);
+      logger.info(`[DB] getImageDataById: id=${id}, hasUrl=${!!row?.image_url}, hasData=${!!row?.image_data}, size=${row?.image_size}, mimeType=${row?.image_mime_type}`);
       
       // Convert base64 back to buffer if stored as base64
       if (row && row.image_data && typeof row.image_data === 'string') {
