@@ -302,6 +302,7 @@ const Admin = () => {
           }
           break;
         case 'videos':
+          console.log('[Admin] Video upload starting...', { title: formData.title, video: formData.video?.name, size: formData.video?.size });
           if (!formData.title) {
             alert('Please enter a title');
             return;
@@ -313,14 +314,23 @@ const Admin = () => {
               alert('Please select a video file');
               return;
             }
+            console.log('[Admin] Creating FormData for video upload...');
             const videoFormData = new FormData();
             videoFormData.append('title', formData.title);
             videoFormData.append('description', formData.description || '');
             videoFormData.append('category', formData.category || 'general');
             videoFormData.append('video', formData.video);
-            await axiosInstance.post(`/gallery/video/upload`, videoFormData, {
-              headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            
+            console.log('[Admin] Sending video upload request...', { size: formData.video.size });
+            try {
+              const response = await axiosInstance.post(`/gallery/video/upload`, videoFormData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+              });
+              console.log('[Admin] Video upload success:', response);
+            } catch (uploadErr) {
+              console.error('[Admin] Video upload failed:', uploadErr);
+              throw uploadErr;
+            }
           }
           break;
         default:

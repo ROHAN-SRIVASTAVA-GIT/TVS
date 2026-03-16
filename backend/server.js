@@ -75,9 +75,20 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Body Parser Middleware
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+// Body Parser Middleware - increased limits for video uploads
+app.use(express.json({ limit: '200mb' }));
+app.use(express.urlencoded({ limit: '200mb', extended: true, parameterLimit: 50000 }));
+
+// Set timeout for video uploads (5 minutes)
+app.use((req, res, next) => {
+  if (req.path.includes('/video/upload')) {
+    res.setTimeout(300000, () => {
+      logger.error('[Timeout] Video upload timed out');
+      res.status(408).json({ success: false, message: 'Request timeout' });
+    });
+  }
+  next();
+});
 
 // Logging Middleware
 app.use(morgan('combined', { stream: logger.stream }));

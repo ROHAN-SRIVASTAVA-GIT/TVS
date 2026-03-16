@@ -161,12 +161,31 @@ class GalleryController {
   // Video methods - store in database
   static async uploadVideo(req, res) {
     try {
+      logger.info('[Video Upload] Starting upload...', { 
+        body: req.body, 
+        hasFile: !!req.file,
+        fileInfo: req.file ? {
+          originalname: req.file.originalname,
+          mimetype: req.file.mimetype,
+          size: req.file.size
+        } : null
+      });
+
       const { title, description, category } = req.body;
 
-      if (!title || !req.file) {
+      if (!title) {
+        logger.warn('[Video Upload] Missing title');
         return res.status(400).json({
           success: false,
-          message: 'Title and video file are required'
+          message: 'Title is required'
+        });
+      }
+
+      if (!req.file) {
+        logger.warn('[Video Upload] Missing video file');
+        return res.status(400).json({
+          success: false,
+          message: 'Video file is required'
         });
       }
 
@@ -174,6 +193,8 @@ class GalleryController {
       const videoBuffer = req.file.buffer;
       const videoMimeType = req.file.mimetype || 'video/mp4';
       const videoSize = req.file.size;
+
+      logger.info(`[Video Upload] Saving to DB: ${title}, size: ${videoSize} bytes`);
 
       const item = await Gallery.createVideo({
         title,
@@ -185,7 +206,7 @@ class GalleryController {
         uploadedBy: req.userId
       });
 
-      logger.info(`Gallery video uploaded: ${item.id} (${videoSize} bytes)`);
+      logger.info(`[Video Upload] Success: ID ${item.id}, size: ${videoSize} bytes`);
 
       res.status(201).json({
         success: true,
@@ -202,10 +223,10 @@ class GalleryController {
         }
       });
     } catch (error) {
-      logger.error('Upload video error:', error);
+      logger.error('[Video Upload] Error:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to upload video'
+        message: 'Failed to upload video: ' + error.message
       });
     }
   }
