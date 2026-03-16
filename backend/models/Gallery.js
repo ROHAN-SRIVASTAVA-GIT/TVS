@@ -9,7 +9,7 @@ class Gallery {
           id SERIAL PRIMARY KEY,
           title VARCHAR(255) NOT NULL,
           description TEXT,
-          image_data BYTEA,
+          image_data TEXT,
           image_mime_type VARCHAR(100) DEFAULT 'image/jpeg',
           image_size INTEGER,
           category VARCHAR(100),
@@ -25,7 +25,7 @@ class Gallery {
         id SERIAL PRIMARY KEY,
         title VARCHAR(255) NOT NULL,
         description TEXT,
-        video_data BYTEA,
+        video_data TEXT,
         video_mime_type VARCHAR(100) DEFAULT 'video/mp4',
         video_size INTEGER,
         thumbnail TEXT,
@@ -49,20 +49,24 @@ class Gallery {
     
     // Add new columns to existing tables if they don't exist
     try {
-      await db.query(`ALTER TABLE gallery ADD COLUMN IF NOT EXISTS image_data BYTEA`).catch(() => {});
+      // Drop BYTEA column if exists and add TEXT column for base64 storage
+      await db.query(`ALTER TABLE gallery DROP COLUMN IF EXISTS image_data`).catch(() => {});
+      await db.query(`ALTER TABLE gallery ADD COLUMN IF NOT EXISTS image_data TEXT`).catch(() => {});
       await db.query(`ALTER TABLE gallery ADD COLUMN IF NOT EXISTS image_mime_type VARCHAR(100) DEFAULT 'image/jpeg'`).catch(() => {});
       await db.query(`ALTER TABLE gallery ADD COLUMN IF NOT EXISTS image_size INTEGER`).catch(() => {});
-      logger.info('Gallery image columns updated');
+      logger.info('Gallery image columns updated to TEXT');
     } catch (error) {
       logger.error('Error updating gallery columns:', error);
     }
     
     // Add new columns to existing gallery_videos table if needed
     try {
-      await db.query(`ALTER TABLE gallery_videos ADD COLUMN IF NOT EXISTS video_data BYTEA`).catch(() => {});
+      // Drop BYTEA column if exists and add TEXT column for base64 storage
+      await db.query(`ALTER TABLE gallery_videos DROP COLUMN IF EXISTS video_data`).catch(() => {});
+      await db.query(`ALTER TABLE gallery_videos ADD COLUMN IF NOT EXISTS video_data TEXT`).catch(() => {});
       await db.query(`ALTER TABLE gallery_videos ADD COLUMN IF NOT EXISTS video_mime_type VARCHAR(100) DEFAULT 'video/mp4'`).catch(() => {});
       await db.query(`ALTER TABLE gallery_videos ADD COLUMN IF NOT EXISTS video_size INTEGER`).catch(() => {});
-      logger.info('Gallery video columns updated');
+      logger.info('Gallery video columns updated to TEXT');
     } catch (error) {
       logger.error('Error updating gallery video columns:', error);
     }
@@ -71,6 +75,11 @@ class Gallery {
   static async create(galleryData) {
     const { title, description, imageData, imageMimeType, imageSize, category, uploadedBy } = galleryData;
 
+    // Convert buffer to base64 string for storage
+    const imageBase64 = imageData ? imageData.toString('base64') : null;
+    
+    logger.info(`[DB] Creating image: title=${title}, bufferSize=${imageData?.length}, base64Length=${imageBase64?.length}`);
+
     const query = `
       INSERT INTO gallery (title, description, image_data, image_mime_type, image_size, category, uploaded_by)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -78,7 +87,7 @@ class Gallery {
     `;
 
     try {
-      const result = await db.query(query, [title, description, imageData, imageMimeType || 'image/jpeg', imageSize, category, uploadedBy]);
+      const result = await db.query(query, [title, description, imageBase64, imageMimeType || 'image/jpeg', imageSize, category, uploadedBy]);
       logger.info(`Gallery item created: ${result.rows[0].id}`);
       return result.rows[0];
     } catch (error) {
@@ -114,7 +123,14 @@ class Gallery {
     
     try {
       const result = await db.query(query, [id]);
-      return result.rows[0];
+      const row = result.rows[0];
+      
+      // Convert base64 back to buffer if stored as base64
+      if (row && row.image_data && typeof row.image_data === 'string') {
+        row.image_data = Buffer.from(row.image_data, 'base64');
+      }
+      
+      return row;
     } catch (error) {
       logger.error('Error fetching image data:', error);
       throw error;
@@ -188,9 +204,14 @@ class Gallery {
     }
   }
 
-  // Video methods - store binary data in DB
+  // Video methods - store binary data in DB as base64
   static async createVideo(videoData) {
     const { title, description, videoData: videoBuffer, videoMimeType, videoSize, thumbnail, category, uploadedBy } = videoData;
+
+    // Convert buffer to base64 string for storage
+    const videoBase64 = videoBuffer ? videoBuffer.toString('base64') : null;
+    
+    logger.info(`[DB] Creating video: title=${title}, bufferSize=${videoBuffer?.length}, base64Length=${videoBase64?.length}, mimeType=${videoMimeType}`);
 
     const query = `
       INSERT INTO gallery_videos (title, description, video_data, video_mime_type, video_size, thumbnail, category, uploaded_by)
@@ -199,8 +220,8 @@ class Gallery {
     `;
 
     try {
-      const result = await db.query(query, [title, description, videoBuffer, videoMimeType || 'video/mp4', videoSize, thumbnail, category, uploadedBy]);
-      logger.info(`Gallery video created: ${result.rows[0].id}`);
+      const result = await db.query(query, [title, description, videoBase64, videoMimeType || 'video/mp4', videoSize, thumbnail, category, uploadedBy]);
+      logger.info(`Gallery video created: ${result.rows[0].id}, stored size: ${result.rows[0].video_size}`);
       return result.rows[0];
     } catch (error) {
       logger.error('Error creating gallery video:', error);
@@ -247,8 +268,16 @@ class Gallery {
     
     try {
       const result = await db.query(query, [id]);
-      logger.info(`[DB] getVideoDataById:`, { id, rowCount: result.rowCount, hasData: !!result.rows[0]?.video_data });
-      return result.rows[0];
+      const row = result.rows[0];
+      
+      // Convert base64 back to buffer if stored as base64
+      if (row && row.video_data && typeof row.video_data === 'string') {
+        row.video_data = Buffer.from(row.video_data, 'base64');
+        logger.info(`[DB] getVideoDataById: id=${id}, converted base64 to buffer, size=${row.video_data.length}`);
+      }
+      
+      logger.info(`[DB] getVideoDataById: id=${id}, rowCount=${result.rowCount}, hasData=${!!row?.video_data}, type=${typeof row?.video_data}`);
+      return row;
     } catch (error) {
       logger.error('Error fetching video data:', error);
       throw error;

@@ -197,7 +197,9 @@ const Admin = () => {
     if (!window.confirm('Are you sure you want to delete this item?')) return;
     setActionLoading(true);
     try {
-      await axiosInstance.delete(`/admin/${endpoint}/${id}`);
+      // Check if it's a gallery video (different endpoint)
+      const url = endpoint === 'gallery/video' ? `/${endpoint}/${id}` : `/admin/${endpoint}/${id}`;
+      await axiosInstance.delete(url);
       loadTabData();
       setShowModal(false);
     } catch (err) {
