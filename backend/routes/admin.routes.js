@@ -5,24 +5,20 @@ const { auth, authorize } = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/gallery/');
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname));
-  }
-});
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 10485760 },
+  limits: { 
+    fileSize: 10485760,
+    fieldSize: 10485760
+  },
   fileFilter: (req, file, cb) => {
-    const allowedMimes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif'];
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'];
     if (allowedMimes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Only JPEG, PNG, JPG and GIF are allowed'));
+      cb(new Error('Invalid file type. Only JPEG, PNG, JPG, GIF and WebP are allowed'));
     }
   }
 });

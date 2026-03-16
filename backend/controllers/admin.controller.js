@@ -624,15 +624,23 @@ class AdminController {
     try {
       const title = req.body.title || (req.body.get && req.body.get('title'));
       const category = req.body.category || (req.body.get && req.body.get('category'));
-      const imageUrl = req.file ? `/uploads/gallery/${req.file.filename}` : null;
       
       if (!title) {
         return res.status(400).json({ success: false, message: 'Title is required' });
       }
       
+      if (!req.file) {
+        return res.status(400).json({ success: false, message: 'Image is required' });
+      }
+      
+      const imageBuffer = req.file.buffer;
+      const imageMimeType = req.file.mimetype || 'image/jpeg';
+      const imageSize = req.file.size;
+      const imageBase64 = imageBuffer.toString('base64');
+      
       const result = await db.query(
-        'INSERT INTO gallery (title, image_url, category) VALUES ($1, $2, $3) RETURNING *',
-        [title, imageUrl, category || 'general']
+        'INSERT INTO gallery (title, image_data, image_mime_type, image_size, category) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+        [title, imageBase64, imageMimeType, imageSize, category || 'general']
       );
       res.status(201).json({ success: true, data: result.rows[0] });
     } catch (error) {
