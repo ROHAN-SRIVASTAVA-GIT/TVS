@@ -19,9 +19,18 @@ const getVideoStreamUrl = (videoId) => {
   if (String(videoId).startsWith('data:') || String(videoId).startsWith('http')) {
     return videoId;
   }
-  // Use full API URL with /api prefix
   const url = `${API_URL}/gallery/video/${videoId}/stream`;
   console.log('[Gallery] Video stream URL:', url);
+  
+  // Also test fetch
+  fetch(url, { headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` } })
+    .then(res => {
+      console.log('[Gallery] Stream fetch status:', res.status, res.headers.get('content-type'));
+      return res.text();
+    })
+    .then(data => console.log('[Gallery] Stream response:', data.substring(0, 200)))
+    .catch(err => console.error('[Gallery] Stream fetch error:', err));
+  
   return url;
 };
 
@@ -212,7 +221,15 @@ const Gallery = () => {
               className="video-player"
               preload="metadata"
               onCanPlay={() => console.log('[Gallery] Video can play')}
-              onError={(e) => console.error('[Gallery] Video error:', e)}
+              onLoadedMetadata={() => console.log('[Gallery] Video metadata loaded')}
+              onError={(e) => {
+                const video = e.target;
+                const error = video.error;
+                console.error('[Gallery] Video error:', error);
+                console.error('[Gallery] Video error code:', error?.code);
+                console.error('[Gallery] Video networkState:', video.networkState);
+                console.error('[Gallery] Video src:', video.src);
+              }}
             >
               <source src={getVideoStreamUrl(selectedVideo.id)} type={selectedVideo.video_mime_type || "video/mp4"} />
               Your browser does not support the video tag.
