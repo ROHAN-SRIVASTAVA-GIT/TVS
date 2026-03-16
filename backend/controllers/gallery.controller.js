@@ -293,9 +293,20 @@ class GalleryController {
   static async streamVideo(req, res) {
     try {
       const { id } = req.params;
-      logger.info(`[Stream Video] Request for ID: ${id}`);
+      const videoId = parseInt(id, 10);
+      logger.info(`[Stream Video] ===========================================`);
+      logger.info(`[Stream Video] Request for ID: ${id}, parsed: ${videoId}`);
+      logger.info(`[Stream Video] Full URL: ${req.originalUrl}`);
       
-      const videoData = await Gallery.getVideoDataById(id);
+      if (isNaN(videoId)) {
+        logger.error(`[Stream Video] Invalid ID: ${id}`);
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid video ID'
+        });
+      }
+      
+      const videoData = await Gallery.getVideoDataById(videoId);
       
       logger.info(`[Stream Video] DB result:`, {
         id,

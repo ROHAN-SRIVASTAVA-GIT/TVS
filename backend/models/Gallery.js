@@ -264,6 +264,7 @@ class Gallery {
   }
 
   static async getVideoDataById(id) {
+    logger.info(`[DB] getVideoDataById called with id:`, id, typeof id);
     const query = 'SELECT video_data, video_mime_type, video_size FROM gallery_videos WHERE id = $1';
     
     try {
