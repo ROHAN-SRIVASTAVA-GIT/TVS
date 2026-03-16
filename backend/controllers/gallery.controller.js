@@ -4,6 +4,16 @@ const logger = require('../config/logger');
 class GalleryController {
   static async uploadImage(req, res) {
     try {
+      logger.info('[Image Upload] Starting...', { 
+        body: req.body, 
+        hasFile: !!req.file,
+        fileInfo: req.file ? {
+          originalname: req.file.originalname,
+          mimetype: req.file.mimetype,
+          size: req.file.size
+        } : null
+      });
+
       const { title, description, category } = req.body;
 
       if (!title || !req.file) {
@@ -13,26 +23,75 @@ class GalleryController {
         });
       }
 
+      // Store image in DB
+      const imageBuffer = req.file.buffer;
+      const imageMimeType = req.file.mimetype || 'image/jpeg';
+      const imageSize = req.file.size;
+
       const item = await Gallery.create({
         title,
         description,
-        imageUrl: `/uploads/${req.file.filename}`,
+        imageData: imageBuffer,
+        imageMimeType,
+        imageSize,
         category,
         uploadedBy: req.userId
       });
 
-      logger.info(`Gallery image uploaded: ${item.id}`);
+      logger.info(`[Image Upload] Success: ID ${item.id}, size: ${imageSize} bytes`);
 
       res.status(201).json({
         success: true,
         message: 'Image uploaded successfully',
-        data: item
+        data: {
+          id: item.id,
+          title: item.title,
+          description: item.description,
+          image_mime_type: item.image_mime_type,
+          image_size: item.image_size,
+          category: item.category,
+          created_at: item.created_at
+        }
       });
     } catch (error) {
-      logger.error('Upload image error:', error);
+      logger.error('[Image Upload] Error:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to upload image'
+        message: 'Failed to upload image: ' + error.message
+      });
+    }
+  }
+
+  static async streamImage(req, res) {
+    try {
+      const { id } = req.params;
+      logger.info(`[Stream Image] Request for ID: ${id}`);
+      
+      const imageData = await Gallery.getImageDataById(id);
+
+      if (!imageData || !imageData.image_data) {
+        logger.warn(`[Stream Image] Not found: ${id}`);
+        return res.status(404).json({
+          success: false,
+          message: 'Image not found'
+        });
+      }
+
+      const mimeType = imageData.image_mime_type || 'image/jpeg';
+      const fileSize = imageData.image_size || imageData.image_data.length;
+
+      res.set({
+        'Content-Type': mimeType,
+        'Content-Length': fileSize,
+        'Content-Disposition': `inline; filename="image-${id}.jpg"`
+      });
+
+      res.send(imageData.image_data);
+    } catch (error) {
+      logger.error('[Stream Image] Error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to stream image'
       });
     }
   }

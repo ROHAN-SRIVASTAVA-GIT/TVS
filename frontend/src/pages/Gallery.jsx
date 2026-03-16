@@ -4,12 +4,9 @@ import './Gallery.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
-const getMediaUrl = (url) => {
-  if (!url) return '';
-  if (url.startsWith('data:')) return url;
-  if (url.startsWith('http')) return url;
+const getImageStreamUrl = (imageId) => {
   const baseUrl = API_URL.replace('/api', '');
-  return `${baseUrl}${url}`;
+  return `${baseUrl}/gallery/${imageId}/stream`;
 };
 
 const getVideoStreamUrl = (videoId) => {
@@ -112,7 +109,7 @@ const Gallery = () => {
                     onClick={() => setSelectedImage(image)}
                   >
                     <img 
-                      src={getMediaUrl(image.image_url)} 
+                      src={getImageStreamUrl(image.id)} 
                       alt={image.title} 
                       loading="lazy"
                       onError={(e) => { e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23ddd" width="400" height="300"/%3E%3Ctext x="50%25" y="50%25" font-size="20" fill="%23999" text-anchor="middle" dy=".3em"%3ENo Image%3C/text%3E%3C/svg%3E'; }} 
@@ -176,7 +173,7 @@ const Gallery = () => {
           <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
             <span className="close" onClick={() => setSelectedImage(null)}>×</span>
             <img 
-              src={getMediaUrl(selectedImage.image_url)} 
+              src={getImageStreamUrl(selectedImage.id)} 
               alt={selectedImage.title} 
               onError={(e) => { e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23ddd" width="400" height="300"/%3E%3Ctext x="50%25" y="50%25" font-size="20" fill="%23999" text-anchor="middle" dy=".3em"%3ENo Image%3C/text%3E%3C/svg%3E'; }} 
             />

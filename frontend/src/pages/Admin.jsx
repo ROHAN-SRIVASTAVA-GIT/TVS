@@ -5,12 +5,11 @@ import './Admin.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
-const getImageUrl = (url) => {
-  if (!url) return null;
-  if (url.startsWith('data:')) return url;
-  // Fix: Remove /api prefix if present, since static files are served from root
+const getImageUrl = (imageId) => {
+  if (!imageId) return null;
+  if (String(imageId).startsWith('data:')) return imageId;
   const baseUrl = API_URL.replace('/api', '');
-  return `${baseUrl}${url}`;
+  return `${baseUrl}/gallery/${imageId}/stream`;
 };
 
 const Admin = () => {
@@ -688,9 +687,9 @@ const Admin = () => {
                 <>
                   <td>{g.id}</td>
                   <td>
-                    {g.image_url ? (
+                    {g.id ? (
                       <img 
-                        src={getImageUrl(g.image_url)} 
+                        src={getImageUrl(g.id)} 
                         alt={g.title}
                         style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '5px' }}
                         onError={(e) => { e.target.style.display = 'none'; }}

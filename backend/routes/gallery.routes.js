@@ -6,24 +6,19 @@ const multer = require('multer');
 const path = require('path');
 const logger = require('../config/logger');
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/');
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname));
-  }
-});
-
+// Use memory storage for images - stored in DB
 const upload = multer({
-  storage: storage,
-  limits: { fileSize: 10485760 },
+  storage: multer.memoryStorage(),
+  limits: { 
+    fileSize: 10485760, // 10MB for images
+    fieldSize: 10485760
+  },
   fileFilter: (req, file, cb) => {
-    const allowedMimes = ['image/jpeg', 'image/png', 'image/jpg'];
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'];
     if (allowedMimes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type'));
+      cb(new Error('Invalid file type. Only JPEG, PNG, JPG, GIF, WebP allowed'));
     }
   }
 });
@@ -68,7 +63,11 @@ const handleMulterError = (err, req, res, next) => {
 router.get('/', GalleryController.getGallery);
 router.get('/category/:category', GalleryController.getByCategory);
 
-// Video routes - MUST be before /:id routes
+// Image routes - stream from DB
+router.post('/upload', auth, authorize('admin'), upload.single('image'), handleMulterError, GalleryController.uploadImage);
+router.get('/:id/stream', GalleryController.streamImage);
+
+// Video routes - stream from DB
 router.post('/video/upload', auth, authorize('admin'), videoUpload.single('video'), handleMulterError, GalleryController.uploadVideo);
 router.get('/video', GalleryController.getVideos);
 router.get('/video/:id', GalleryController.getVideoById);
@@ -76,8 +75,7 @@ router.get('/video/:id/stream', GalleryController.streamVideo);
 router.put('/video/:id', auth, authorize('admin'), GalleryController.updateVideo);
 router.delete('/video/:id', auth, authorize('admin'), GalleryController.deleteVideo);
 
-// Image routes
-router.post('/upload', auth, authorize('admin'), upload.single('image'), GalleryController.uploadImage);
+// Legacy image routes
 router.get('/:id', GalleryController.getImageById);
 router.put('/:id', auth, authorize('admin'), GalleryController.updateImage);
 router.delete('/:id', auth, authorize('admin'), GalleryController.deleteImage);

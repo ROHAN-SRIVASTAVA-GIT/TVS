@@ -9,8 +9,9 @@ class Gallery {
           id SERIAL PRIMARY KEY,
           title VARCHAR(255) NOT NULL,
           description TEXT,
-          image_url TEXT,
-          video_url TEXT,
+          image_data BYTEA,
+          image_mime_type VARCHAR(100) DEFAULT 'image/jpeg',
+          image_size INTEGER,
           category VARCHAR(100),
           uploaded_by INTEGER REFERENCES users(id),
           featured BOOLEAN DEFAULT false,
@@ -24,7 +25,6 @@ class Gallery {
         id SERIAL PRIMARY KEY,
         title VARCHAR(255) NOT NULL,
         description TEXT,
-        video_url TEXT,
         video_data BYTEA,
         video_mime_type VARCHAR(100) DEFAULT 'video/mp4',
         video_size INTEGER,
@@ -42,12 +42,19 @@ class Gallery {
       await db.query(`CREATE INDEX IF NOT EXISTS idx_gallery_videos_category ON gallery_videos(category)`);
       await db.query(`CREATE INDEX IF NOT EXISTS idx_gallery_videos_featured ON gallery_videos(featured)`);
       
-      // Make image_url nullable if it was NOT NULL
-      await db.query(`ALTER TABLE gallery ALTER COLUMN image_url DROP NOT NULL`).catch(() => {});
-      
       logger.info('Gallery tables created successfully');
     } catch (error) {
       logger.error('Error creating gallery table:', error);
+    }
+    
+    // Add new columns to existing tables if they don't exist
+    try {
+      await db.query(`ALTER TABLE gallery ADD COLUMN IF NOT EXISTS image_data BYTEA`).catch(() => {});
+      await db.query(`ALTER TABLE gallery ADD COLUMN IF NOT EXISTS image_mime_type VARCHAR(100) DEFAULT 'image/jpeg'`).catch(() => {});
+      await db.query(`ALTER TABLE gallery ADD COLUMN IF NOT EXISTS image_size INTEGER`).catch(() => {});
+      logger.info('Gallery image columns updated');
+    } catch (error) {
+      logger.error('Error updating gallery columns:', error);
     }
     
     // Add new columns to existing gallery_videos table if needed
@@ -62,16 +69,16 @@ class Gallery {
   }
 
   static async create(galleryData) {
-    const { title, description, imageUrl, category, uploadedBy } = galleryData;
+    const { title, description, imageData, imageMimeType, imageSize, category, uploadedBy } = galleryData;
 
     const query = `
-      INSERT INTO gallery (title, description, image_url, category, uploaded_by)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO gallery (title, description, image_data, image_mime_type, image_size, category, uploaded_by)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
     `;
 
     try {
-      const result = await db.query(query, [title, description, imageUrl, category, uploadedBy]);
+      const result = await db.query(query, [title, description, imageData, imageMimeType || 'image/jpeg', imageSize, category, uploadedBy]);
       logger.info(`Gallery item created: ${result.rows[0].id}`);
       return result.rows[0];
     } catch (error) {
@@ -82,7 +89,8 @@ class Gallery {
 
   static async getAll(limit = 20, offset = 0) {
     const query = `
-      SELECT * FROM gallery
+      SELECT id, title, description, image_mime_type, image_size, category, uploaded_by, featured, sort_order, created_at, updated_at
+      FROM gallery
       ORDER BY featured DESC, sort_order ASC, created_at DESC
       LIMIT $1 OFFSET $2
     `;
@@ -97,6 +105,18 @@ class Gallery {
       };
     } catch (error) {
       logger.error('Error fetching gallery:', error);
+      throw error;
+    }
+  }
+
+  static async getImageDataById(id) {
+    const query = 'SELECT image_data, image_mime_type, image_size FROM gallery WHERE id = $1';
+    
+    try {
+      const result = await db.query(query, [id]);
+      return result.rows[0];
+    } catch (error) {
+      logger.error('Error fetching image data:', error);
       throw error;
     }
   }
@@ -119,7 +139,7 @@ class Gallery {
   }
 
   static async findById(id) {
-    const query = 'SELECT * FROM gallery WHERE id = $1';
+    const query = 'SELECT id, title, description, image_mime_type, image_size, category, uploaded_by, featured, sort_order, created_at, updated_at FROM gallery WHERE id = $1';
     
     try {
       const result = await db.query(query, [id]);
